@@ -26,6 +26,9 @@ annotations = [pj(annotations_dir, x, x + '.gff')
                for x in strains]
 parsnp_tree = pj(parsnp_tree_dir, 'parsnp.tree')
 kmers = pj(out, 'kmers.gz')
+sketches_base = pj(out, 'sketches')
+sketches = sketches_base + '.msh'
+mash_distances = pj(out, 'mash.tsv')
 
 rule annotate:
   input: annotations
@@ -36,8 +39,9 @@ rule:
     genome=pj(genomes_dir, '{strain}.fasta')
   output: pj(annotations_dir, '{strain}', '{strain}.gff')
   params: pj(annotations_dir, '{strain}')
+  threads: 5
   shell:
-    'prokka --outdir {params} --force --prefix {wildcards.strain} --addgenes --locustag {wildcards.strain} --mincontiglen 200 --genus Escherichia -species coli --strain {wildcards.strain} --proteins {input.ref} --cpus 1 {input.genome}'
+    'prokka --outdir {params} --force --prefix {wildcards.strain} --addgenes --locustag {wildcards.strain} --mincontiglen 200 --genus Escherichia -species coli --strain {wildcards.strain} --proteins {input.ref} --cpus {threads} {input.genome}'
 
 rule make_tree:
   input: genomes_dir
@@ -54,3 +58,18 @@ rule do_kmers:
   output: kmers
   shell:
     'fsm-lite -l {input} -t tmp.txt -m 9 -M 100 -s 1 -v | gzip > {output}'
+
+rule:
+  input: genomes_dir
+  output: sketches
+  threads: 5
+  params: sketches_base
+  shell:
+    'mash sketch -p {threads} -s 10000 -o {params} {input}/*.fasta'
+
+rule mash:
+  input: sketches
+  output: mash_distances
+  threads: 5
+  shell:
+    'mash dist -p {threads} {input} {input} | square_mash > {output}'
