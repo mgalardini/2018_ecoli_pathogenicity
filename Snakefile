@@ -20,6 +20,7 @@ genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
 out = config.get('out', 'out')
 annotations_dir = pj(out, 'annotations')
 parsnp_tree_dir = pj(out, 'parsnp')
+gubbins_tree_dir = pj(out, 'gubbins')
 roary_dir = pj(out, 'roary')
 
 # output files
@@ -29,6 +30,8 @@ parsnp_tree = pj(parsnp_tree_dir, 'parsnp.tree')
 polished_parsnp_tree = pj(parsnp_tree_dir, 'tree.nwk')
 parsnp_xmfa = pj(parsnp_tree_dir, 'parsnp.xmfa')
 parsnp_alignment = pj(parsnp_tree_dir, 'parsnp.fasta')
+gubbins_tree = pj(gubbins_tree_dir, 'gubbins.final_tree.tre')
+gubbins_prefix = pj(gubbins_tree_dir, 'gubbins')
 kmers = pj(out, 'kmers.gz')
 sketches_base = pj(out, 'sketches')
 sketches = sketches_base + '.msh'
@@ -64,12 +67,20 @@ rule make_tree:
   shell:
     'src/fix_tree_labels {input} {output}'
 
-rule make_gubbins_tree:
+rule:
   input: parsnp_tree
   output: parsnp_alignment
   params: parsnp_xmfa
   shell:
     'harvesttools -x {params} -M {output}'
+
+rule make_gubbins_tree:
+  input: parsnp_alignment
+  output: gubbins_tree
+  params: gubbins_prefix
+  threads: 20
+  shell:
+    'run_gubbins.py --verbose --threads {threads} {input} --prefix {params}'
 
 rule do_kmers:
   input: input_file
