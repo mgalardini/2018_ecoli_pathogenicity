@@ -20,6 +20,7 @@ genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
 out = config.get('out', 'out')
 annotations_dir = pj(out, 'annotations')
 parsnp_tree_dir = pj(out, 'parsnp')
+roary_dir = pj(out, 'roary')
 
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
@@ -29,6 +30,7 @@ kmers = pj(out, 'kmers.gz')
 sketches_base = pj(out, 'sketches')
 sketches = sketches_base + '.msh'
 mash_distances = pj(out, 'mash.tsv')
+roary = pj(roary_dir, 'gene_presence_absence.Rtab')
 
 rule annotate:
   input: annotations
@@ -73,3 +75,11 @@ rule mash:
   threads: 5
   shell:
     'mash dist -p {threads} {input} {input} | square_mash > {output}'
+
+rule pangenome:
+  input: annotations
+  output: roary
+  params: roary_dir
+  threads: 20
+  shell:
+    'rm -rf {params}/* && roary -p {threads} -f {params} -s -v -g 100000 {input}'
