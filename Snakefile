@@ -26,6 +26,9 @@ roary_dir = pj(out, 'roary')
 annotations = [pj(annotations_dir, x, x + '.gff')
                for x in strains]
 parsnp_tree = pj(parsnp_tree_dir, 'parsnp.tree')
+polished_parsnp_tree = pj(parsnp_tree_dir, 'tree.nwk')
+parsnp_xmfa = pj(parsnp_tree_dir, 'parsnp.xmfa')
+parsnp_alignment = pj(parsnp_tree_dir, 'parsnp.fasta')
 kmers = pj(out, 'kmers.gz')
 sketches_base = pj(out, 'sketches')
 sketches = sketches_base + '.msh'
@@ -45,7 +48,7 @@ rule:
   shell:
     'prokka --outdir {params} --force --prefix {wildcards.strain} --addgenes --locustag {wildcards.strain} --mincontiglen 200 --genus Escherichia -species coli --strain {wildcards.strain} --proteins {input.ref} --cpus {threads} {input.genome}'
 
-rule make_tree:
+rule:
   input: genomes_dir
   output: parsnp_tree
   params:
@@ -54,6 +57,19 @@ rule make_tree:
   threads: 20
   shell:
     'parsnp -d {input} -r {params.focus} -p {threads} -o {params.outdir} -v -c'
+
+rule make_tree:
+  input: parsnp_tree
+  output: polished_parsnp_tree
+  shell:
+    'src/fix_tree_labels {input} {output}'
+
+rule make_gubbins_tree:
+  input: parsnp_tree
+  output: parsnp_alignment
+  params: parsnp_xmfa
+  shell:
+    'harvesttools -x {params} -M {output}'
 
 rule do_kmers:
   input: input_file
@@ -82,4 +98,4 @@ rule pangenome:
   params: roary_dir
   threads: 20
   shell:
-    'rm -rf {params}/* && roary -p {threads} -f {params} -s -v -g 100000 {input}'
+    'rm -rf {params} && roary -p {threads} -f {params} -s -v -g 100000 {input}'
