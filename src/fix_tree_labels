@@ -23,6 +23,7 @@ if __name__ == "__main__":
     t = Phylo.read(options.input, 'newick')
 
     for c in t.get_terminals():
+        c.name = c.name.replace('.ref', '')
         c.name = c.name.replace('.fasta', '')
 
     t.root_at_midpoint()
