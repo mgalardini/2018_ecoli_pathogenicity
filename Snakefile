@@ -72,6 +72,8 @@ annotated_lmm_kmer = pj(associations_dir, 'annotated_lmm_kmer.tsv')
 annotated_cont_lmm_kmer = pj(associations_dir, 'annotated_cont_lmm_kmer.tsv')
 summary_lmm_kmer = pj(associations_dir, 'summary_lmm_kmer.tsv')
 summary_cont_lmm_kmer = pj(associations_dir, 'summary_cont_lmm_kmer.tsv')
+summary_lineage_lmm_kmer = pj(associations_dir, 'summary_lineage_lmm_kmer.tsv')
+summary_lineage_cont_lmm_kmer = pj(associations_dir, 'summary_lineage_cont_lmm_kmer.tsv')
 # pangenome
 filtered_lmm_rtab = pj(associations_dir, 'filtered_lmm_rtab.tsv')
 filtered_cont_lmm_rtab = pj(associations_dir, 'filtered_cont_lmm_rtab.tsv')
@@ -319,20 +321,28 @@ rule:
 rule:
   input:
     alk=annotated_lmm_kmer,
-    aclk=annotated_cont_lmm_kmer
+    aclk=annotated_cont_lmm_kmer,
+    llk=lineage_lmm_kmer,
+    lclk=lineage_cont_lmm_kmer
   output:
     slk=summary_lmm_kmer,
-    sclk=summary_cont_lmm_kmer
+    sclk=summary_cont_lmm_kmer,
+    sllk=summary_lineage_lmm_kmer,
+    slclk=summary_lineage_cont_lmm_kmer
   shell:
     '''
     python src/summarise_annotations.py {input.alk} > {output.slk}
     python src/summarise_annotations.py {input.aclk} > {output.sclk}
+    python src/summarise_annotations.py {input.alk} --lineage $(head -n 2 {input.llk} | tail -n 1 | awk '{{print $1}}') > {output.sllk}
+    python src/summarise_annotations.py {input.aclk} --lineage $(head -n 2 {input.lclk} | tail -n 1 | awk '{{print $1}}') > {output.slclk}
     '''
 
 rule downstream:
   input:
     summary_lmm_kmer,
     summary_cont_lmm_kmer,
+    summary_lineage_lmm_kmer,
+    summary_lineage_cont_lmm_kmer,
     filtered_lmm_rtab,
     filtered_cont_lmm_rtab,
     qq_lmm_kmer,

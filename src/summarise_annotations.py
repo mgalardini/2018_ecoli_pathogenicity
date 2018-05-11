@@ -13,6 +13,9 @@ def get_options():
     parser.add_argument('annotations',
                         help='Annotated k-mer file from annotate_hits.py')
 
+    parser.add_argument('--lineage',
+                        default=None,
+                        help='Only consider kmers belonging to a specific lineage')
     parser.add_argument('--nearby',
                         action='store_true',
                         help='Use up/downstream annotation, if not in a gene')
@@ -48,6 +51,10 @@ if __name__ == "__main__":
             af = float(anot_fields[1])
             pvalue = float(anot_fields[3])
             beta = abs(float(anot_fields[4]))
+            if options.lineage is not None:
+                lineage = anot_fields[-2]
+                if lineage != options.lineage:
+                    continue
             annotations = anot_fields[-1].split(",")
 
             if pvalue > 0:
