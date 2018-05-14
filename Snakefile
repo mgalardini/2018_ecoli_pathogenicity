@@ -23,6 +23,7 @@ parsnp_tree_dir = pj(out, 'parsnp')
 gubbins_tree_dir = pj(out, 'gubbins')
 roary_dir = pj(out, 'roary')
 associations_dir = pj(out, 'associations')
+kmer_counts_dir = pj(associations_dir, 'kmer_counts')
 
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
@@ -44,19 +45,11 @@ roary = pj(roary_dir, 'gene_presence_absence.Rtab')
 roarycsv = pj(roary_dir, 'gene_presence_absence.csv')
 # associations
 # kmers
-associations_lmm_kmer = pj(associations_dir, 'associations_lmm_kmer.tsv')
-patterns_lmm_kmer = pj(associations_dir, 'patterns_lmm_kmer.txt')
-lineage_lmm_kmer = pj(associations_dir, 'lineage_lmm_kmer.tsv')
-h2_lmm_kmer = pj(associations_dir, 'h2_lmm_kmer.txt')
 associations_cont_lmm_kmer = pj(associations_dir, 'associations_cont_lmm_kmer.tsv')
 patterns_cont_lmm_kmer = pj(associations_dir, 'patterns_cont_lmm_kmer.txt')
 lineage_cont_lmm_kmer = pj(associations_dir, 'lineage_cont_lmm_kmer.tsv')
 h2_cont_lmm_kmer = pj(associations_dir, 'h2_cont_lmm_kmer.txt')
 # pangenome
-associations_lmm_rtab = pj(associations_dir, 'associations_lmm_rtab.tsv')
-patterns_lmm_rtab = pj(associations_dir, 'patterns_lmm_rtab.txt')
-lineage_lmm_rtab = pj(associations_dir, 'lineage_lmm_rtab.tsv')
-h2_lmm_rtab = pj(associations_dir, 'h2_lmm_rtab.txt')
 associations_cont_lmm_rtab = pj(associations_dir, 'associations_cont_lmm_rtab.tsv')
 patterns_cont_lmm_rtab = pj(associations_dir, 'patterns_cont_lmm_rtab.txt')
 lineage_cont_lmm_rtab = pj(associations_dir, 'lineage_cont_lmm_rtab.tsv')
@@ -64,20 +57,15 @@ h2_cont_lmm_rtab = pj(associations_dir, 'h2_cont_lmm_rtab.txt')
 # associations - downstream
 references = pj(associations_dir, 'references.txt')
 # kmers
-filtered_lmm_kmer = pj(associations_dir, 'filtered_lmm_kmer.tsv')
 filtered_cont_lmm_kmer = pj(associations_dir, 'filtered_cont_lmm_kmer.tsv')
-qq_lmm_kmer = pj(associations_dir, 'qq_lmm_kmer.png')
 qq_cont_lmm_kmer = pj(associations_dir, 'qq_cont_lmm_kmer.png')
-annotated_lmm_kmer = pj(associations_dir, 'annotated_lmm_kmer.tsv')
 annotated_cont_lmm_kmer = pj(associations_dir, 'annotated_cont_lmm_kmer.tsv')
-summary_lmm_kmer = pj(associations_dir, 'summary_lmm_kmer.tsv')
+kmer_counts_lmm = [pj(kmer_counts_dir, x + '.txt')
+                   for x in strains]
 summary_cont_lmm_kmer = pj(associations_dir, 'summary_cont_lmm_kmer.tsv')
-summary_lineage_lmm_kmer = pj(associations_dir, 'summary_lineage_lmm_kmer.tsv')
 summary_lineage_cont_lmm_kmer = pj(associations_dir, 'summary_lineage_cont_lmm_kmer.tsv')
 # pangenome
-filtered_lmm_rtab = pj(associations_dir, 'filtered_lmm_rtab.tsv')
 filtered_cont_lmm_rtab = pj(associations_dir, 'filtered_cont_lmm_rtab.tsv')
-qq_lmm_rtab = pj(associations_dir, 'qq_lmm_rtab.png')
 qq_cont_lmm_rtab = pj(associations_dir, 'qq_cont_lmm_rtab.png')
 
 rule annotate:
@@ -180,23 +168,6 @@ rule:
     dist=mash_distances,
     sim=gubbins_similarities
   output:
-    associations=associations_lmm_kmer,
-    patterns=patterns_lmm_kmer,
-    lineage=lineage_lmm_kmer,
-    h2=h2_lmm_kmer
-  threads: 40
-  params:
-    dimensions=3
-  shell:
-    'pyseer --phenotypes {input.phenotype} --phenotype-column phenotype --kmers {input.kmers} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
-
-rule:
-  input:
-    phenotype=phenotypes,
-    kmers=kmers,
-    dist=mash_distances,
-    sim=gubbins_similarities
-  output:
     associations=associations_cont_lmm_kmer,
     patterns=patterns_cont_lmm_kmer,
     lineage=lineage_cont_lmm_kmer,
@@ -209,25 +180,7 @@ rule:
 
 rule associate_kmers:
   input:
-    associations_lmm_kmer,
     associations_cont_lmm_kmer
-
-rule:
-  input:
-    phenotype=phenotypes,
-    rtab=roary,
-    dist=mash_distances,
-    sim=gubbins_similarities
-  output:
-    associations=associations_lmm_rtab,
-    patterns=patterns_lmm_rtab,
-    lineage=lineage_lmm_rtab,
-    h2=h2_lmm_rtab
-  threads: 5
-  params:
-    dimensions=3
-  shell:
-    'pyseer --phenotypes {input.phenotype} --phenotype-column phenotype --pres {input.rtab} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
 
 rule:
   input:
@@ -248,46 +201,33 @@ rule:
 
 rule associate_pangenome:
   input:
-    associations_lmm_rtab,
     associations_cont_lmm_rtab
 
 rule:
   input:
-    alk=associations_lmm_kmer,
     aclk=associations_cont_lmm_kmer,
-    alr=associations_lmm_rtab,
     aclr=associations_cont_lmm_rtab,
-    pk=patterns_lmm_kmer,
-    pr=patterns_lmm_rtab
+    pk=patterns_cont_lmm_kmer,
+    pr=patterns_cont_lmm_rtab
   output:
-    flk=filtered_lmm_kmer,
     fclk=filtered_cont_lmm_kmer,
-    flr=filtered_lmm_rtab,
     fclr=filtered_cont_lmm_rtab
   shell:
     '''
-    cat <(head -1 {input.alk}) <(awk -v pval=$(python src/count_patterns.py {input.pk} | tail -n 1 | awk '{{print $2}}') '$4<pval {{print $0}}' {input.alk}) > {output.flk}
     cat <(head -1 {input.aclk}) <(awk -v pval=$(python src/count_patterns.py {input.pk} | tail -n 1 | awk '{{print $2}}') '$4<pval {{print $0}}' {input.aclk}) > {output.fclk}
-    cat <(head -1 {input.alr}) <(awk -v pval=$(python src/count_patterns.py {input.pr} | tail -n 1 | awk '{{print $2}}') '$4<pval {{print $0}}' {input.alr}) > {output.flr}
     cat <(head -1 {input.aclr}) <(awk -v pval=$(python src/count_patterns.py {input.pr} | tail -n 1 | awk '{{print $2}}') '$4<pval {{print $0}}' {input.aclr}) > {output.fclr}
     ''' 
 
 rule:
   input:
-    alk=associations_lmm_kmer,
     aclk=associations_cont_lmm_kmer,
-    alr=associations_lmm_rtab,
     aclr=associations_cont_lmm_rtab
   output:
-    qlk=qq_lmm_kmer,
     qclk=qq_cont_lmm_kmer,
-    qlr=qq_lmm_rtab,
     qclr=qq_cont_lmm_rtab
   shell:
     '''
-    python src/qq_plot.py {input.alk} --output {output.qlk}
     python src/qq_plot.py {input.aclk} --output {output.qclk}
-    python src/qq_plot.py {input.alr} --output {output.qlr}
     python src/qq_plot.py {input.aclr} --output {output.qclr}
     '''
 
@@ -301,52 +241,47 @@ rule:
 
 rule:
   input:
-    flk=filtered_lmm_kmer,
     fclk=filtered_cont_lmm_kmer,
     ref=references,
     roary=roary
   output:
-    dlk=annotated_lmm_kmer,
     dclk=annotated_cont_lmm_kmer
   params:
     gd=genomes_dir,
     pangenome=roarycsv
   shell:
     '''
-    python src/annotate_hits.py {input.flk} {input.ref} {output.dlk} --tmp-prefix /tmp/ --roary {params.pangenome}
     python src/annotate_hits.py {input.fclk} {input.ref} {output.dclk} --tmp-prefix /tmp/ --roary {params.pangenome}
     rm {params.gd}/*.pac {params.gd}/*.sa {params.gd}/*.amb {params.gd}/*.ann {params.gd}/*.bwt
     '''
 
 rule:
   input:
-    alk=annotated_lmm_kmer,
     aclk=annotated_cont_lmm_kmer,
-    llk=lineage_lmm_kmer,
     lclk=lineage_cont_lmm_kmer
   output:
-    slk=summary_lmm_kmer,
     sclk=summary_cont_lmm_kmer,
-    sllk=summary_lineage_lmm_kmer,
     slclk=summary_lineage_cont_lmm_kmer
   shell:
     '''
-    python src/summarise_annotations.py {input.alk} > {output.slk}
     python src/summarise_annotations.py {input.aclk} > {output.sclk}
-    python src/summarise_annotations.py {input.alk} --lineage $(head -n 2 {input.llk} | tail -n 1 | awk '{{print $1}}') > {output.sllk}
     python src/summarise_annotations.py {input.aclk} --lineage $(head -n 2 {input.lclk} | tail -n 1 | awk '{{print $1}}') > {output.slclk}
     '''
 
+rule:
+  input:
+    fclk=filtered_cont_lmm_kmer,
+    genome=pj(genomes_dir, '{strain}.fasta')
+  output:
+    pj(kmer_counts_dir, '{strain}.txt')
+  shell:
+    'src/map_back {input.fclk} {input.genome} --bwa-algorithm fastmap | wc -l > {output}'
+
 rule downstream:
   input:
-    summary_lmm_kmer,
     summary_cont_lmm_kmer,
-    summary_lineage_lmm_kmer,
     summary_lineage_cont_lmm_kmer,
-    filtered_lmm_rtab,
     filtered_cont_lmm_rtab,
-    qq_lmm_kmer,
     qq_cont_lmm_kmer,
-    qq_lmm_rtab,
-    qq_cont_lmm_rtab
-    
+    qq_cont_lmm_rtab,
+    kmer_counts_lmm
