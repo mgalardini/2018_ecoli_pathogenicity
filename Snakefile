@@ -62,11 +62,15 @@ qq_cont_lmm_kmer = pj(associations_dir, 'qq_cont_lmm_kmer.png')
 annotated_cont_lmm_kmer = pj(associations_dir, 'annotated_cont_lmm_kmer.tsv')
 kmer_counts_lmm = [pj(kmer_counts_dir, x + '.txt')
                    for x in strains]
+kmer_count_lmm = pj(associations_dir, 'kmer_counts_lmm.txt')
 summary_cont_lmm_kmer = pj(associations_dir, 'summary_cont_lmm_kmer.tsv')
 summary_lineage_cont_lmm_kmer = pj(associations_dir, 'summary_lineage_cont_lmm_kmer.tsv')
+kmer_gene_count_lmm = pj(associations_dir, 'kmer_gene_counts_lmm.txt')
+kmer_lineage_gene_count_lmm = pj(associations_dir, 'kmer_lineage_gene_counts_lmm.txt')
 # pangenome
 filtered_cont_lmm_rtab = pj(associations_dir, 'filtered_cont_lmm_rtab.tsv')
 qq_cont_lmm_rtab = pj(associations_dir, 'qq_cont_lmm_rtab.png')
+rtab_gene_count_lmm = pj(associations_dir, 'rtab_gene_counts_lmm.txt')
 
 rule annotate:
   input: annotations
@@ -277,11 +281,54 @@ rule:
   shell:
     'src/map_back {input.fclk} {input.genome} --bwa-algorithm fastmap | wc -l > {output}'
 
+rule:
+  input:
+    kmer_counts_lmm
+  output:
+    kmer_count_lmm
+  params:
+    kmer_counts_dir 
+  shell:
+    'for i in $(ls {params}); do echo $(basename $i .txt) $(cat {params}/$i); done > {output}'
+
+rule:
+  input:
+    summary=summary_cont_lmm_kmer,
+    pangenome=roary
+  output:
+    kmer_gene_count_lmm
+  params:
+    roarycsv
+  shell:
+    'src/summary2genes {input.summary} {params} > {output}'
+
+rule:
+  input:
+    summary=summary_lineage_cont_lmm_kmer,
+    pangenome=roary
+  output:
+    kmer_lineage_gene_count_lmm
+  params:
+    roarycsv
+  shell:
+    'src/summary2genes {input.summary} {params} > {output}'
+
+rule:
+  input:
+    summary=filtered_cont_lmm_rtab,
+    pangenome=roary
+  output:
+    rtab_gene_count_lmm
+  params:
+    roarycsv
+  shell:
+    'src/summary2genes {input.summary} {params} > {output}'
+
 rule downstream:
   input:
-    summary_cont_lmm_kmer,
-    summary_lineage_cont_lmm_kmer,
-    filtered_cont_lmm_rtab,
     qq_cont_lmm_kmer,
     qq_cont_lmm_rtab,
-    kmer_counts_lmm
+    kmer_count_lmm,
+    kmer_gene_count_lmm,
+    kmer_lineage_gene_count_lmm,
+    rtab_gene_count_lmm
