@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+
+def get_options():
+    import argparse
+
+    description = 'Extract a representative from roary\'s orthologs'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('roary',
+                        help='Roary\'s output')
+    parser.add_argument('proteomes',
+                        help='Proteomes folder')
+    
+    parser.add_argument('--focus-strain',
+                        default=None,
+                        action='append',
+                        help='Focus strain [Default: first Roary\'s column]')
+    parser.add_argument('--groups',
+                        default=None,
+                        help='OGs to focus on (one per line) [Default: all of them]')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import os
+    import sys
+    import pandas as pd
+    from Bio import SeqIO
+
+    # Load roary
+    roary = pd.read_table(options.roary,
+                          sep=',',
+                          low_memory=False,
+                          index_col=0)
+    # Drop the other info columns
+    roary.drop(list(roary.columns[:13]),
+               axis=1,
+               inplace=True)
+
+    ogs = None
+    if options.groups is not None:
+        ogs = {x.rstrip()
+               for x in open(options.groups)}
+
+    d = {}
+    for g in roary.index:
+        if ogs is not None and g not in ogs:
+            continue
+        genes = roary.loc[g].dropna()
+        if options.focus_strain is None:
+            strain = genes.index[0]
+            gene = genes.values[0]
+        else:
+            gene = None
+            for strain in options.focus_strain:
+                if strain in genes.index:
+                    gene = genes.loc[strain]
+                    break
+            if gene is None:
+                strain = genes.index[0]
+                gene = genes.values[0]
+        if '\t' in gene:
+            # pick first paralog
+            gene = gene.split('\t')[0]
+        d[strain] = d.get(strain, {})
+        d[strain][gene] = g
+
+    for strain in d:
+        for s in SeqIO.parse(os.path.join(options.proteomes,
+                                          strain,
+                                          '%s.faa' % strain),
+                             'fasta'):
+            if s.id in d[strain]:
+                s.description = d[strain][s.id] + ' ' + strain + ' ' + s.id
+                s.id = d[strain][s.id]
+
+                SeqIO.write(s, sys.stdout, 'fasta')
