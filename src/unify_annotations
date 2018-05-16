@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Merge eggnog with uniprot annotations'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('uniprot',
+                        help='Uniprot query to gene names file')
+    parser.add_argument('eggnog',
+                        help='eggnog results')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import pandas as pd
+
+    g = pd.read_table(options.uniprot,
+                      index_col=0)
+
+    e = pd.read_table(options.eggnog,
+                      header=None)
+    e.columns = ['query_name',
+                 'seed_eggNOG_ortholog',
+                 'seed_ortholog_evalue',
+                 'seed_ortholog_score',
+                 'predicted_gene_name',
+                 'GO_terms',
+                 'KEGG_KO',
+                 'BiGG_Reactions',
+                 'Annotation_tax_scope',
+                 'Matching_OGs',
+                 'best_OG|evalue|score',
+                 'COG functional categories',
+                 'eggNOG_HMM_model_annotation']
+    e = e.set_index(e['query_name'])
+
+    m = g.join(e, how='outer')
+    m = m[['names', 'predicted_gene_name',
+           'eggNOG_HMM_model_annotation', 'uniprot', 'GO_terms',
+           'KEGG_KO', 'BiGG_Reactions', 'COG functional categories']]
+    consensus_name = [x if str(x) != 'nan' else y
+                      for x, y in m[['names', 'predicted_gene_name']].values]
+    consensus_name = [x if str(x) != 'nan' else y
+                      for x, y in zip(consensus_name, m.index)]
+    m['preferred_og_name'] = consensus_name
+    m = m.reset_index()
+    m = m[['preferred_og_name', 'index',
+           'names', 'predicted_gene_name',
+           'eggNOG_HMM_model_annotation', 'uniprot', 'GO_terms',
+           'KEGG_KO', 'BiGG_Reactions', 'COG functional categories']]
+    m = m.rename(columns={'index':'OG'})
+    m = m.sort_values('preferred_og_name')
+    m.to_csv(sys.stdout,
+             sep='\t',
+             index=False)

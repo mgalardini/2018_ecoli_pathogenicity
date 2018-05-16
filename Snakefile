@@ -81,8 +81,10 @@ gene_distances = pj(associations_dir, 'gene_distances.tsv')
 associated_ogs = pj(associations_dir, 'associated_ogs.txt')
 sampled_ogs = pj(associations_dir, 'associated_ogs.faa')
 uniref = pj(associations_dir, 'associated_ogs.faa.uniref50.tsv')
+unirefnames = pj(associations_dir, 'associated_ogs.faa.uniref50.names.tsv')
 # offline annotation
 eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
+unified_annotations = pj(associations_dir, 'associated_ogs.final.tsv')
 # plots
 viz_tree = pj(plots_dir, '4_tree.pdf')
 
@@ -396,17 +398,33 @@ rule:
 
 rule:
   input:
+    uniref
+  output:
+    unirefnames
+  shell:
+    'src/uniref2genes {input} > {output}'
+
+rule:
+  input:
     sampled_ogs
   output:
     eggnog
   shell:
     'echo "OFFLINE ANNOTATION: please submit {input} to http://eggnogdb.embl.de/#/app/emapper and download the output to {output}"'
 
+rule:
+  input:
+    unirefnames,
+    eggnog
+  output:
+    unified_annotations
+  shell:
+    'src/unify_annotations {input} > {output}'
+
 rule annotate_hits:
   input:
     gene_distances,
-    uniref,
-    eggnog
+    unified_annotations
 
 rule:
   input:

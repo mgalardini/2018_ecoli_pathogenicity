@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Transform a blastp output in gene names'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('blastp',
+                        help='Blastp regular tabular format')
+    
+    parser.add_argument('--identity',
+                        default=70.,
+                        type=float,
+                        help='Minimum percent identity [Default=70%%]')
+    parser.add_argument('--evalue',
+                        default=1E-4,
+                        type=float,
+                        help='Maximum E-value [Default=1E-4]')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import requests
+    import pandas as pd
+    from io import StringIO
+    from Bio import SwissProt
+
+    uniref = 'https://www.uniprot.org/uniref/%s.tab'
+    uniprot = 'https://www.uniprot.org/uniprot/%s.txt'
+
+    b = pd.read_table(options.blastp)
+    b.columns = ['query', 'hit',
+                 'ident', 'length',
+                 'm', 'g',
+                 'qstart', 'qend',
+                 'hstart', 'hend',
+                 'evalue', 'bits']
+    b = b[(b['ident'] >= options.identity) &
+          (b['evalue'] <= options.evalue)]
+
+    d = {}
+    d1 = {}
+    print('query\tnames\tuniprot')
+    for query, hit in b[['query', 'hit']].values:
+        names = set()
+        sys.stderr.write('Looking for %s - %s\n' % (query, hit))
+        r = requests.get(uniref % hit)
+        if r.status_code != 200:
+            sys.stderr.write('Error %d on Uniref entry %s\n' % (r.status_code, hit))
+            sys.stderr.write('%s\n' % r.url)
+            continue
+        m = pd.read_table(StringIO(r.text), index_col=0)
+        uhit = m[m['Role'] == 'Representative']
+        if uhit.shape[0] > 0:
+            uhit = uhit.index[0]
+        else:
+            continue
+        r = requests.get(uniprot % uhit)
+        if r.status_code != 200:
+            sys.stderr.write('Error %d on Uniprot entry %s\n' % (r.status_code, uhit))
+            sys.stderr.write('%s\n' % r.url)
+            continue
+        r = SwissProt.read(StringIO(r.text))
+        for entry in r.gene_name.split(';'):
+            if entry.startswith('Name='):
+                name = entry.split('Name=')[1].split()[0]
+                if len(name) < 3:
+                    continue
+                d[query] = d.get(query, set())
+                d[query].add(name)
+                d1[query] = d1.get(query, set())
+                d1[query].add(uhit)
+    
+    for query, names in d.items():
+        clean = [x for x in names
+                 if '_' not in x
+                 and len(x) <= 4]
+        if len(clean) == 0:
+            continue
+        print('%s\t%s\t%s' % (query,
+                              ','.join(clean),
+                              ','.join(d1.get(query, []))))
