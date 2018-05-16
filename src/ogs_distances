@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+
+def get_options():
+    import argparse
+
+    description = 'Extract a representative from roary\'s orthologs'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('roary',
+                        help='Roary\'s output')
+    parser.add_argument('annotations',
+                        help='Annotations folder')
+    
+    parser.add_argument('--focus-strain',
+                        default=None,
+                        action='append',
+                        help='Focus strain [Default: first Roary\'s column]')
+    parser.add_argument('--groups',
+                        default=None,
+                        help='OGs to focus on (one per line) [Default: all of them]')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import os
+    import sys
+    import random
+    import itertools
+    import numpy as np
+    import pandas as pd
+    from Bio import SeqIO
+
+    # Load roary
+    roary = pd.read_table(options.roary,
+                          sep=',',
+                          low_memory=False,
+                          index_col=0)
+    # Drop the other info columns
+    roary.drop(list(roary.columns[:13]),
+               axis=1,
+               inplace=True)
+
+    ogs = None
+    if options.groups is not None:
+        ogs = {x.rstrip()
+               for x in open(options.groups)
+               if x.strip() in roary.index}
+    else:
+        ogs = set(roary.index)
+
+    if options.focus_strain is None:
+        strains = roary.columns
+    else:
+        strains = [x
+                   for x in options.focus_strain]
+
+    print('\t'.join(('strain',
+                     'og1', 'og2',
+                     'replicon', 'strand',
+                     'distance', 'set')))
+    for strain in strains:
+        # build og-gene realtionships
+        genes = roary.loc[ogs, strain]
+        o = {}
+        for og, genes in roary.loc[ogs, strain].dropna().items():
+            for gene in genes.split('\t'):
+                o[gene] = og
+        # read gbk - memorize the position of each gene
+        # not only relevant genes, so that we get
+        # a null model as well
+        g = {}
+        for s in SeqIO.parse(os.path.join(options.annotations,
+                                          strain,
+                                          '%s.gbk' % strain),
+                             'genbank'):
+            for f in s.features:
+                locus = f.qualifiers.get('locus_tag', [''])[0]
+                g[locus] = (s.id,
+                            f.location.start,
+                            f.location.end,
+                            f.strand)
+        # compute requested genes distances
+        res = 0
+        for g1, g2 in itertools.combinations(o, 2):
+            if g[g1][0] != g[g2][0]:
+                print('\t'.join((strain,
+                                 o[g1], o[g2],
+                                 str(False), str(np.nan), str(np.nan), 'real')))
+            else:
+                dist = min([abs(x - y)
+                            for x, y in
+                            itertools.product(g[g1][1:3], g[g2][1:3])])
+                print('\t'.join((strain,
+                                 o[g1], o[g2],
+                                 str(True), str(g[g1][3] == g[g2][3]),
+                                 str(dist), 'real')))
+            res += 1
+        # compute an equal random number of pairs as a null models
+        for i in range(res):
+            while True:
+                g1, g2 = random.choices(list(g), k=2)
+                if g1 != g2:
+                    break
+            if g[g1][0] != g[g2][0]:
+                print('\t'.join((strain,
+                                 g1, g2,
+                                 str(False), str(np.nan), str(np.nan), 'random')))
+            else:
+                dist = min([abs(x - y)
+                            for x, y in
+                            itertools.product(g[g1][1:3], g[g2][1:3])])
+                print('\t'.join((strain,
+                                 g1, g2,
+                                 str(True), str(g[g1][3] == g[g2][3]),
+                                 str(dist), 'random')))

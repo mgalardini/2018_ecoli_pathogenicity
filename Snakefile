@@ -18,7 +18,6 @@ genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
 
 # binaries/databases
 # edit at will or change these settings with --config
-interproscan = config.get('interproscan', 'interproscan.sh')
 uniref50 = config.get('uniref50', 'db/uniref50')
 
 # output directories
@@ -78,9 +77,9 @@ filtered_cont_lmm_rtab = pj(associations_dir, 'filtered_cont_lmm_rtab.tsv')
 qq_cont_lmm_rtab = pj(associations_dir, 'qq_cont_lmm_rtab.png')
 rtab_gene_count_lmm = pj(associations_dir, 'rtab_gene_counts_lmm.txt')
 # associations - downstream - genes
-associated_ogs = pj(associations_dir, 'aassociated_ogs.txt')
+gene_distances = pj(associations_dir, 'gene_distances.tsv')
+associated_ogs = pj(associations_dir, 'associated_ogs.txt')
 sampled_ogs = pj(associations_dir, 'associated_ogs.faa')
-interpro = pj(associations_dir, 'associated_ogs.faa.tsv')
 uniref = pj(associations_dir, 'associated_ogs.faa.uniref50.tsv')
 # offline annotation
 eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
@@ -374,14 +373,15 @@ rule downstream:
 
 rule:
   input:
-    sampled_ogs
+    roary,
+    ogs=associated_ogs
   params:
-    interproscan
+    pangenome=roarycsv,
+    annotations=annotations_dir
   output:
-    interpro
-  threads: 20
+    gene_distances
   shell:
-    '{params} -i {input} -f tsv --goterms --cpu {threads}'
+    'python3 src/ogs_distances {params.pangenome} {params.annotations} --groups {input.ogs} > {output}'
 
 rule:
   input:
@@ -404,7 +404,7 @@ rule:
 
 rule annotate_hits:
   input:
-    interpro,
+    gene_distances,
     uniref,
     eggnog
 
