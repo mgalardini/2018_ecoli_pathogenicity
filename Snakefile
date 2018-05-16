@@ -16,6 +16,11 @@ strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
 genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
 
+# binaries/databases
+# edit at will or change these settings with --config
+interproscan = config.get('interproscan', 'interproscan.sh')
+uniref50 = config.get('uniref50', 'db/uniref50')
+
 # output directories
 out = config.get('out', 'out')
 annotations_dir = pj(out, 'annotations')
@@ -71,6 +76,13 @@ kmer_lineage_gene_count_lmm = pj(associations_dir, 'kmer_lineage_gene_counts_lmm
 filtered_cont_lmm_rtab = pj(associations_dir, 'filtered_cont_lmm_rtab.tsv')
 qq_cont_lmm_rtab = pj(associations_dir, 'qq_cont_lmm_rtab.png')
 rtab_gene_count_lmm = pj(associations_dir, 'rtab_gene_counts_lmm.txt')
+# associations - downstream - genes
+associated_ogs = pj(associations_dir, 'aassociated_ogs.txt')
+sampled_ogs = pj(associations_dir, 'associated_ogs.faa')
+interpro = pj(associations_dir, 'associated_ogs.faa.tsv')
+uniref = pj(associations_dir, 'associated_ogs.faa.uniref50.tsv')
+# offline annotation
+eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
 
 rule annotate:
   input: annotations
@@ -324,6 +336,29 @@ rule:
   shell:
     'src/summary2genes {input.summary} {params} > {output}'
 
+rule:
+  input:
+    rtab=filtered_cont_lmm_rtab,
+    kmer=summary_cont_lmm_kmer
+  output:
+    associated_ogs
+  shell:
+    ''
+    '(tail -n+2 {input.rtab} | awk \'{{print $1}}\' && tail -n+2 {input.kmer} | awk \'{{print $1}}\') | sort | uniq > {output}'
+
+rule:
+  input:
+    ogs=associated_ogs,
+    roary=roary
+  params:
+    pangenome=roarycsv,
+    annotations=annotations_dir
+  output:
+    sampled_ogs
+  shell:
+    'src/sample_pangenome {params.pangenome} {params.annotations} --focus-strain IAI39 --focus-strain IAI01 --groups {input.ogs} > {output}'
+    
+
 rule downstream:
   input:
     qq_cont_lmm_kmer,
@@ -331,4 +366,41 @@ rule downstream:
     kmer_count_lmm,
     kmer_gene_count_lmm,
     kmer_lineage_gene_count_lmm,
-    rtab_gene_count_lmm
+    rtab_gene_count_lmm,
+    sampled_ogs
+
+rule:
+  input:
+    sampled_ogs
+  params:
+    interproscan
+  output:
+    interpro
+  threads: 20
+  shell:
+    '{params} -i {input} -f tsv --goterms --cpu {threads}'
+
+rule:
+  input:
+    sampled_ogs
+  params:
+    uniref50
+  output:
+    uniref
+  threads: 20
+  shell:
+    'blastp -query {input} -num_threads {threads} -db {params} -outfmt 6 > {output}'
+
+rule:
+  input:
+    sampled_ogs
+  output:
+    eggnog
+  shell:
+    'echo "OFFLINE ANNOTATION: please submit {input} to http://eggnogdb.embl.de/#/app/emapper and download the output to {output}"'
+
+rule annotate_hits:
+  input:
+    interpro,
+    uniref,
+    eggnog
