@@ -1,0 +1,243 @@
+#!/usr/bin/env python
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Generate annotated tree"
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('tree', action='store',
+                        help='Tree in Newick format')
+    parser.add_argument('phenotype', action='store',
+                        help='Phenotype file')
+    parser.add_argument('kmers', action='store',
+                        help='kmers file')
+    parser.add_argument('kmersgene', action='store',
+                        help='Genes from kmers file')
+    parser.add_argument('genes', action='store',
+                        help='Genes file')
+    parser.add_argument('out', action='store',
+                        help='Output directory')
+
+    parser.add_argument('--labels', action='store_true',
+                        default=False,
+                        help='Show strain labels')
+    parser.add_argument('--only-phenotype', action='store_true',
+                        default=False,
+                        help='Only show the phenotpyes')
+    parser.add_argument('--width', action='store',
+                        type=float,
+                        default=10,
+                        help='Figure height [Default: 10 inches]')
+    parser.add_argument('--dpi', action='store',
+                        type=int,
+                        default=300,
+                        help='DPI [Default: 300]')
+    parser.add_argument('--extension', action='store',
+                        default='png',
+                        help='Pictures extension [Default: png]')
+    parser.add_argument('--prefix', action='store',
+                        default='',
+                        help='Pictures prefix [Default: ""]')
+
+    return parser.parse_args()
+
+
+def get_tree(infile):
+    tree = Tree(infile)
+
+    # tree.set_outgroup(tree.get_midpoint_outgroup())
+
+    return tree
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import os
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as colors
+    from ete3 import TreeStyle, NodeStyle, Tree, RectFace
+
+    # output files
+    tfile = os.path.join(options.out,
+                         '%stree.%s' % (options.prefix,
+                                        options.extension))
+    pfile = os.path.join(options.out,
+                         '%sphenotypes.%s' % (options.prefix,
+                                              options.extension))
+    kfile = os.path.join(options.out,
+                         '%skmers.%s' % (options.prefix,
+                                         options.extension))
+    kgfile = os.path.join(options.out,
+                          '%skmers_genes.%s' % (options.prefix,
+                                                options.extension))
+    gfile = os.path.join(options.out,
+                         '%sgenes.%s' % (options.prefix,
+                                         options.extension))
+    #
+    
+    # phenotypes
+    p = pd.read_table(options.phenotype, index_col=0)
+    pbinary = p['phenotype'].to_dict()
+    pcont = p['killed'].to_dict()
+
+    color = {x: y
+             for x,y in zip(range(max(pcont.values())+1),
+                            sns.color_palette('Reds',
+                                              max(pcont.values())+1))}
+
+    k = pd.read_table(options.kmers,
+                      header=None,
+                      sep=' ',
+                      index_col=0)[1].to_dict()
+    kc = {x: y
+          for x,y in zip(range(max(k.values())+1),
+                         sns.color_palette('Purples',
+                                           max(k.values())+1))}
+    kg = pd.read_table(options.kmersgene,
+                       header=None,
+                       sep=' ',
+                       index_col=0)[1].to_dict()
+    kcg = {x: y
+           for x,y in zip(range(max(kg.values())+1),
+                          sns.color_palette('Purples',
+                                           max(kg.values())+1))}
+    g = pd.read_table(options.genes,
+                      header=None,
+                      sep=' ',
+                      index_col=0)[1].to_dict()
+    gc = {x: y
+          for x,y in zip(range(max(g.values())+1),
+                         sns.color_palette('Blues',
+                                           max(g.values())+1))}
+                            
+    # tree
+    tree = get_tree(options.tree)
+
+    inner = NodeStyle()
+    inner['size'] = 0
+    for n in tree.traverse():
+        if not n.is_leaf():
+            n.set_style(inner)
+            continue
+
+        r = RectFace(30, 15,
+                     colors.rgb2hex(color[pcont.get(n.name, 0)]),
+                     colors.rgb2hex(color[pcont.get(n.name, 0)]))
+        n.add_face(r, 0,
+                   position="aligned")
+        if not options.only_phenotype:
+            r = RectFace(30, 15,
+                         colors.rgb2hex(kc[k.get(n.name, 0)]),
+                         colors.rgb2hex(kc[k.get(n.name, 0)]))
+            n.add_face(r, 1,
+                       position="aligned")
+            r = RectFace(30, 15,
+                         colors.rgb2hex(kcg[kg.get(n.name, 0)]),
+                         colors.rgb2hex(kcg[kg.get(n.name, 0)]))
+            n.add_face(r, 2,
+                       position="aligned")
+            r = RectFace(30, 15,
+                         colors.rgb2hex(gc[g.get(n.name, 0)]),
+                         colors.rgb2hex(gc[g.get(n.name, 0)]))
+            n.add_face(r, 3,
+                       position="aligned")
+
+    circular_style = TreeStyle()
+    circular_style.mode = "c"
+    circular_style.scale = None
+    circular_style.arc_start = -180
+    circular_style.arc_span = 180
+    if options.labels:
+        circular_style.show_leaf_name = True
+    else:
+        circular_style.show_leaf_name = False
+    circular_style.draw_guiding_lines = True
+    tree.render(tfile,
+                w=options.width,
+                units="in",
+                tree_style=circular_style,
+                dpi=options.dpi)
+
+    plt.clf()
+    
+    plt.figure(figsize=(3.5, 0.5))
+
+    mmax = max(pcont.values())
+
+    gradient = np.linspace(0, mmax, 100)
+    gradient = np.vstack((gradient, gradient))
+    plt.imshow(gradient, aspect='auto', cmap=plt.get_cmap('Reds'),
+               vmax=mmax)
+
+    plt.xticks((0, 50, 100),
+               [str(x) for x in (0, mmax//2, mmax)])
+    plt.yticks([])
+    plt.title('Mice killed')
+    
+    plt.savefig(pfile,
+                dpi=options.dpi)
+
+    plt.clf()
+    
+    plt.figure(figsize=(3.5, 0.5))
+
+    mmax = max(k.values())
+
+    gradient = np.linspace(0, mmax, 100)
+    gradient = np.vstack((gradient, gradient))
+    plt.imshow(gradient, aspect='auto', cmap=plt.get_cmap('Purples'),
+               vmax=mmax)
+
+    plt.xticks((0, 50, 100),
+               [str(x) for x in (0, mmax//2, mmax)])
+    plt.yticks([])
+    plt.title('Associated kmers')
+    
+    plt.savefig(kfile,
+                dpi=options.dpi)
+
+    plt.clf()
+
+    plt.figure(figsize=(3.5, 0.5))
+
+    mmax = max(kg.values())
+
+    gradient = np.linspace(0, mmax, 100)
+    gradient = np.vstack((gradient, gradient))
+    plt.imshow(gradient, aspect='auto', cmap=plt.get_cmap('Purples'),
+               vmax=mmax)
+
+    plt.xticks((0, 50, 100),
+               [str(x) for x in (0, mmax//2, mmax)])
+    plt.yticks([])
+    plt.title('Associated genes (kmers)')
+    
+    plt.savefig(kgfile,
+                dpi=options.dpi)
+
+    plt.clf()
+
+    plt.figure(figsize=(3.5, 0.5))
+
+    mmax = max(g.values())
+
+    gradient = np.linspace(0, mmax, 100)
+    gradient = np.vstack((gradient, gradient))
+    plt.imshow(gradient, aspect='auto', cmap=plt.get_cmap('Blues'),
+               vmax=mmax)
+
+    plt.xticks((0, 50, 100),
+               [str(x) for x in (0, mmax//2, mmax)])
+    plt.yticks([])
+    plt.title('Associated genes (pangenome)')
+    
+    plt.savefig(gfile,
+                dpi=options.dpi)
+
+    plt.clf()

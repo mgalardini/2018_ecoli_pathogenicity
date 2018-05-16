@@ -29,6 +29,7 @@ gubbins_tree_dir = pj(out, 'gubbins')
 roary_dir = pj(out, 'roary')
 associations_dir = pj(out, 'associations')
 kmer_counts_dir = pj(associations_dir, 'kmer_counts')
+plots_dir = pj(out, 'plots')
 
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
@@ -83,6 +84,8 @@ interpro = pj(associations_dir, 'associated_ogs.faa.tsv')
 uniref = pj(associations_dir, 'associated_ogs.faa.uniref50.tsv')
 # offline annotation
 eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
+# plots
+viz_tree = pj(plots_dir, '4_tree.pdf')
 
 rule annotate:
   input: annotations
@@ -404,3 +407,18 @@ rule annotate_hits:
     interpro,
     uniref,
     eggnog
+
+rule:
+  input:
+    phenotypes,
+    kmer_count_lmm,
+    kmer_gene_count_lmm,
+    rtab_gene_count_lmm
+  output:
+    viz_tree
+  shell:
+    'src/plot_trees.sh'
+    
+rule plots:
+  input:
+    viz_tree
