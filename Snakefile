@@ -7,6 +7,7 @@ pj = os.path.join
 data = config.get('data', 'data')
 genomes_dir = pj(data, 'genomes')
 phenotypes_dir = pj(data, 'phenotypes')
+templates_dir = config.get('templates', 'templates')
 
 # input files
 k12_genome = pj(data, 'genome.faa')
@@ -15,6 +16,8 @@ input_file = pj(data, 'inputs.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
 genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
+report_template = pj(templates_dir, 'plots.ipynb')
+html_template = pj(templates_dir, 'html.tpl')
 
 # binaries/databases
 # edit at will or change these settings with --config
@@ -29,6 +32,7 @@ roary_dir = pj(out, 'roary')
 associations_dir = pj(out, 'associations')
 kmer_counts_dir = pj(associations_dir, 'kmer_counts')
 plots_dir = pj(out, 'plots')
+notebooks_dir = config.get('notebooks', 'notebooks')
 
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
@@ -87,6 +91,8 @@ eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
 unified_annotations = pj(associations_dir, 'associated_ogs.final.tsv')
 # plots
 viz_tree = pj(plots_dir, '4_tree.pdf')
+report_nb = pj(notebooks_dir, 'plots.ipynb')
+report = pj(notebooks_dir, 'plots.html')
 
 rule annotate:
   input: annotations
@@ -437,7 +443,23 @@ rule:
     viz_tree
   shell:
     'src/plot_trees.sh'
-    
+
+rule:
+  input:
+    rt=report_template,
+    ht=html_template,
+    gd=gene_distances,
+    sk=summary_cont_lmm_kmer,
+    ua=unified_annotations
+  output:
+    report
+  params:
+    report_nb
+  shell:
+    'python src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True'
+ 
 rule plots:
   input:
-    viz_tree
+    viz_tree,
+    report
+    
