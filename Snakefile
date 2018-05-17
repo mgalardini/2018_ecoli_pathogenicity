@@ -415,6 +415,7 @@ rule:
 rule:
   input:
     unirefnames,
+    sampled_ogs,
     eggnog
   output:
     unified_annotations

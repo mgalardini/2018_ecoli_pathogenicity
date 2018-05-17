@@ -9,6 +9,8 @@ def get_options():
 
     parser.add_argument('uniprot',
                         help='Uniprot query to gene names file')
+    parser.add_argument('fasta',
+                        help='Representative protein for each OG fasta file')
     parser.add_argument('eggnog',
                         help='eggnog results')
 
@@ -19,10 +21,15 @@ if __name__ == "__main__":
     options = get_options()
 
     import sys
+    import numpy as np
     import pandas as pd
+    from Bio import SeqIO
 
     g = pd.read_table(options.uniprot,
                       index_col=0)
+
+    seqs = {x.id: len(x)
+            for x in SeqIO.parse(options.fasta, 'fasta')}
 
     e = pd.read_table(options.eggnog,
                       header=None)
@@ -42,19 +49,23 @@ if __name__ == "__main__":
     e = e.set_index(e['query_name'])
 
     m = g.join(e, how='outer')
+    m['representative_protein_length'] = [seqs.get(x, np.nan)
+                                          for x in m.index]
     m = m[['names', 'predicted_gene_name',
            'eggNOG_HMM_model_annotation', 'uniprot', 'GO_terms',
-           'KEGG_KO', 'BiGG_Reactions', 'COG functional categories']]
-    consensus_name = [x if str(x) != 'nan' else y
+           'KEGG_KO', 'BiGG_Reactions', 'COG functional categories',
+           'representative_protein_length']]
+    consensus_name = [x.split(',')[0] if str(x) != 'nan' else y
                       for x, y in m[['names', 'predicted_gene_name']].values]
-    consensus_name = [x if str(x) != 'nan' else y
+    consensus_name = [x.split(',')[0] if str(x) != 'nan' else y
                       for x, y in zip(consensus_name, m.index)]
     m['preferred_og_name'] = consensus_name
     m = m.reset_index()
     m = m[['preferred_og_name', 'index',
            'names', 'predicted_gene_name',
            'eggNOG_HMM_model_annotation', 'uniprot', 'GO_terms',
-           'KEGG_KO', 'BiGG_Reactions', 'COG functional categories']]
+           'KEGG_KO', 'BiGG_Reactions', 'COG functional categories',
+           'representative_protein_length']]
     m = m.rename(columns={'index':'OG'})
     m = m.sort_values('preferred_og_name')
     m.to_csv(sys.stdout,
