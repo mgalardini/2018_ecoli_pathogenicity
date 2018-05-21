@@ -86,6 +86,13 @@ associated_ogs = pj(associations_dir, 'associated_ogs.txt')
 sampled_ogs = pj(associations_dir, 'associated_ogs.faa')
 uniref = pj(associations_dir, 'associated_ogs.faa.uniref50.tsv')
 unirefnames = pj(associations_dir, 'associated_ogs.faa.uniref50.names.tsv')
+# restricted strains analysis
+restricted_phenotypes = pj(associations_dir, 'restricted_phenotypes.tsv')
+restricted_similarity = pj(associations_dir, 'restricted_gubbins.tsv')
+associations_restricted = pj(associations_dir, 'associations_restricted.tsv')
+patterns_restricted = pj(associations_dir, 'patterns_restricted.txt')
+lineage_restricted = pj(associations_dir, 'lineage_restricted.tsv')
+h2_restricted = pj(associations_dir, 'h2_restricted.txt')
 # offline annotation
 eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
 unified_annotations = pj(associations_dir, 'associated_ogs.final.tsv')
@@ -432,6 +439,45 @@ rule annotate_hits:
   input:
     gene_distances,
     unified_annotations
+
+rule:
+  input:
+    phenotypes,
+    kmer_gene_count_lmm
+  output:
+    restricted_phenotypes
+  shell:
+    'src/restrict_strains {input} --threshold 14 > {output}'
+
+rule:
+  input:
+    gubbins_similarities,
+    kmer_gene_count_lmm
+  output:
+    restricted_similarity
+  shell:
+    'src/restrict_similarity {input} --threshold 14 > {output}'
+
+rule:
+  input:
+    phenotype=restricted_phenotypes,
+    kmers=kmers,
+    dist=mash_distances,
+    sim=restricted_similarity
+  output:
+    associations=associations_restricted,
+    patterns=patterns_restricted,
+    lineage=lineage_restricted,
+    h2=h2_restricted
+  threads: 40
+  params:
+    dimensions=3
+  shell:
+    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
+
+rule restricted:
+  input:
+    associations_restricted
 
 rule:
   input:
