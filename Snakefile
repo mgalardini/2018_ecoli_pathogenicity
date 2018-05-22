@@ -93,6 +93,10 @@ associations_restricted = pj(associations_dir, 'associations_restricted.tsv')
 patterns_restricted = pj(associations_dir, 'patterns_restricted.txt')
 lineage_restricted = pj(associations_dir, 'lineage_restricted.tsv')
 h2_restricted = pj(associations_dir, 'h2_restricted.txt')
+filtered_restricted = pj(associations_dir, 'filtered_restricted.tsv')
+qq_restricted = pj(associations_dir, 'qq_restricted.png')
+annotated_restricted = pj(associations_dir, 'annotated_restricted.tsv')
+summary_restricted = pj(associations_dir, 'summary_restricted.tsv')
 # offline annotation
 eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
 unified_annotations = pj(associations_dir, 'associated_ogs.final.tsv')
@@ -475,9 +479,52 @@ rule:
   shell:
     'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
 
-rule restricted:
+rule:
+  input:
+    ar=associations_restricted,
+    pr=patterns_restricted
+  output:
+    filtered_restricted
+  shell:
+    '''cat <(head -1 {input.ar}) <(awk -v pval=$(python src/count_patterns.py {input.pr} | tail -n 1 | awk '{{print $2}}') '$4<pval {{print $0}}' {input.ar}) > {output}'''
+
+rule:
   input:
     associations_restricted
+  output:
+    qq_restricted
+  shell:
+    'python src/qq_plot.py {input} --output {output}'
+
+rule:
+  input:
+    fr=filtered_restricted,
+    ref=references,
+    roary=roary
+  output:
+    annotated_restricted
+  params:
+    gd=genomes_dir,
+    pangenome=roarycsv
+  shell:
+    '''
+    python src/annotate_hits.py {input.fr} {input.ref} {output} --tmp-prefix /tmp/ --roary {params.pangenome}
+    rm {params.gd}/*.pac {params.gd}/*.sa {params.gd}/*.amb {params.gd}/*.ann {params.gd}/*.bwt
+    '''
+
+rule:
+  input:
+    annotated_restricted
+  output:
+    summary_restricted
+  shell:
+    'python src/summarise_annotations.py {input} > {output}'
+
+rule restricted:
+  input:
+    filtered_restricted,
+    qq_restricted,
+    summary_restricted
 
 rule:
   input:
