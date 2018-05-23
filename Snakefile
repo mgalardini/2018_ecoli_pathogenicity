@@ -31,6 +31,7 @@ gubbins_tree_dir = pj(out, 'gubbins')
 roary_dir = pj(out, 'roary')
 associations_dir = pj(out, 'associations')
 kmer_counts_dir = pj(associations_dir, 'kmer_counts')
+kmer_mappings_dir = pj(associations_dir, 'kmer_mappings')
 plots_dir = pj(out, 'plots')
 notebooks_dir = config.get('notebooks', 'notebooks')
 
@@ -71,6 +72,8 @@ qq_cont_lmm_kmer = pj(associations_dir, 'qq_cont_lmm_kmer.png')
 annotated_cont_lmm_kmer = pj(associations_dir, 'annotated_cont_lmm_kmer.tsv')
 kmer_counts_lmm = [pj(kmer_counts_dir, x + '.txt')
                    for x in strains]
+kmer_mappings_lmm = [pj(kmer_mappings_dir, x + '.tsv')
+                     for x in strains]
 kmer_count_lmm = pj(associations_dir, 'kmer_counts_lmm.txt')
 summary_cont_lmm_kmer = pj(associations_dir, 'summary_cont_lmm_kmer.tsv')
 summary_lineage_cont_lmm_kmer = pj(associations_dir, 'summary_lineage_cont_lmm_kmer.tsv')
@@ -440,10 +443,20 @@ rule:
   shell:
     'src/unify_annotations {input} > {output}'
 
+rule:
+  input:
+    fclk=filtered_cont_lmm_kmer,
+    genome=pj(genomes_dir, '{strain}.fasta')
+  output:
+    pj(kmer_mappings_dir, '{strain}.tsv')
+  shell:
+    'src/map_back {input.fclk} {input.genome} --bwa-algorithm fastmap --print-details > {output}'
+
 rule annotate_hits:
   input:
     gene_distances,
-    unified_annotations
+    unified_annotations,
+    kmer_mappings_lmm
 
 rule:
   input:
