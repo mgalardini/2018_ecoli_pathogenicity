@@ -27,6 +27,10 @@ def get_options():
                         help="Directory to store temporary files "
                         "[default=./]",
                         default=os.getcwd())
+    parser.add_argument("--print-details",
+                        help="Print mapping positions",
+                        default=False,
+                        action='store_true')
     
     return parser.parse_args()
 
@@ -60,7 +64,12 @@ if __name__ == "__main__":
     for mapping, kmer in zip(bwa_iter(genome_file, kmers_fasta, options.bwa_algorithm),
                              SeqIO.parse(kmers_fasta, 'fasta')):
         if mapping.mapped:
-            print('\t'.join((genome, kmer.id, 'mapped')))
+            if not options.print_details:
+                print('\t'.join((genome, kmer.id, 'mapped')))
+            else:
+                for pos in mapping.positions:
+                    print('\t'.join((genome, kmer.id)) + '\t' +
+                          '\t'.join([str(x) for x in pos]))
 
     # cleanup
     os.remove(kmers_fasta)

@@ -299,10 +299,12 @@ rule:
   output:
     sclk=summary_cont_lmm_kmer,
     slclk=summary_lineage_cont_lmm_kmer
+  params:
+    minsize=20
   shell:
     '''
-    python src/summarise_annotations.py {input.aclk} > {output.sclk}
-    python src/summarise_annotations.py {input.aclk} --lineage $(head -n 2 {input.lclk} | tail -n 1 | awk '{{print $1}}') > {output.slclk}
+    python src/summarise_annotations.py {input.aclk} --min-size {params} > {output.sclk}
+    python src/summarise_annotations.py {input.aclk} --lineage $(head -n 2 {input.lclk} | tail -n 1 | awk '{{print $1}}') --min-size {params} > {output.slclk}
     '''
 
 rule:
@@ -409,7 +411,7 @@ rule:
     uniref50
   output:
     uniref
-  threads: 20
+  threads: 40
   shell:
     'blastp -query {input} -num_threads {threads} -db {params} -outfmt 6 > {output}'
 
@@ -535,7 +537,7 @@ rule:
   output:
     viz_tree
   shell:
-    'src/plot_trees.sh'
+    'bash src/plot_trees.sh'
 
 rule:
   input:
@@ -549,7 +551,7 @@ rule:
   params:
     report_nb
   shell:
-    'python src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True'
+    'python src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:

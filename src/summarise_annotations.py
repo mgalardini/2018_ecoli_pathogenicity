@@ -13,6 +13,10 @@ def get_options():
     parser.add_argument('annotations',
                         help='Annotated k-mer file from annotate_hits.py')
 
+    parser.add_argument('--min-size',
+                        default=30,
+                        type=int,
+                        help='Minimum kmer size to be considered specific [Default: 30]')
     parser.add_argument('--lineage',
                         default=None,
                         help='Only consider kmers belonging to a specific lineage')
@@ -23,15 +27,21 @@ def get_options():
     return parser.parse_args()
 
 
-def update_summary(summary, gene, pval, af, beta):
+def update_summary(summary, gene, pval, af, beta, specific):
     if summary[gene] != {}:
         summary[gene]['count'] += 1
+        if specific:
+            summary[gene]['specific'] += 1
         summary[gene]['af'] += af
         summary[gene]['beta'] += beta
         if log10p > summary[gene]['maxp']:
             summary[gene]['maxp'] = log10p
     else:
         summary[gene]['count'] = 1
+        if specific:
+            summary[gene]['specific'] = 1
+        else:
+            summary[gene]['specific'] = 0
         summary[gene]['af'] = af
         summary[gene]['beta'] = beta
         summary[gene]['maxp'] = log10p
@@ -48,6 +58,11 @@ if __name__ == "__main__":
     with open(options.annotations, 'r') as anot_file:
         for line in anot_file:
             anot_fields = line.rstrip().split("\t")
+            variant = anot_fields[0]
+            if len(variant) >= options.min_size:
+                specific = True
+            else:
+                specific = False
             af = float(anot_fields[1])
             pvalue = float(anot_fields[3])
             beta = abs(float(anot_fields[4]))
@@ -62,15 +77,31 @@ if __name__ == "__main__":
                 for annotation in annotations:
                     (position, down, inside, up) = annotation.split(";")
                     if inside != "":
-                        update_summary(summary, inside, log10p, af, beta)
+                        update_summary(summary,
+                                       inside,
+                                       log10p,
+                                       af,
+                                       beta,
+                                       specific)
                     elif options.nearby:
                         if down != "":
-                            update_summary(summary, down, log10p, af, beta)
+                            update_summary(summary,
+                                           down,
+                                           log10p,
+                                           af,
+                                           beta,
+                                           specific)
                         if up != "":
-                            update_summary(summary, up, log10p, af, beta)
+                            update_summary(summary,
+                                           up,
+                                           log10p,
+                                           af,
+                                           beta,
+                                           specific)
 
     # write output
-    print("\t".join(["gene", "hits", "maxp", "avg_af", "avg_maf", "avg_beta"]))
+    print("\t".join(["gene", "hits", "specific_hits", "maxp",
+                     "avg_af", "avg_maf", "avg_beta"]))
     for gene in summary:
         af = summary[gene]['af']/summary[gene]['count']
         if af > 0.5:
@@ -80,6 +111,7 @@ if __name__ == "__main__":
 
         print("\t".join([gene,
                          str(summary[gene]['count']),
+                         str(summary[gene]['specific']),
                          str(summary[gene]['maxp']),
                          str(af),
                          str(maf),
