@@ -4,18 +4,20 @@
 def get_options():
     import argparse
 
-    description = 'Restrict the phenotype matrix to strains w/ gene hits'
+    description = 'Prepare a covariance matrix based on presence of certain genes'
     parser = argparse.ArgumentParser(description=description)
 
+    parser.add_argument('roary',
+                        help='Roary genes presence/absence table')
+    parser.add_argument('summary',
+                        help='GWAS summary table')
     parser.add_argument('phenotypes',
-                        help='Phenotypes table')
-    parser.add_argument('genes',
-                        help='Genes count table')
+                        help='Phenotypes table (AKA ugly hack)')
     
     parser.add_argument('--threshold',
                         type=int,
-                        default=14,
-                        help='Minimum associated genes [Default: 14]')
+                        default=1,
+                        help='Minimum number of associated genes [Default: 1]')
 
     return parser.parse_args()
 
@@ -26,11 +28,25 @@ if __name__ == "__main__":
     import sys
     import pandas as pd
 
-    p = pd.read_table(options.phenotypes, index_col=0)
-    m = pd.read_table(options.genes,
-                      sep=' ',
-                      index_col=0,
-                      header=None)
+    roary = pd.read_table(options.roary,
+                          sep=',',
+                          low_memory=False)
+    roary.set_index('Gene', inplace=True)
+    roary.drop(list(roary.columns[:13]), axis=1, inplace=True)
+    
+    genes = {}
+    for strain in roary.columns:
+        genes[strain] = set(roary[strain].dropna().index)
 
-    p.loc[m[m > options.threshold].dropna().index].to_csv(sys.stdout,
-                                                 sep='\t')
+    s = pd.read_table(options.summary,
+                      index_col=0)
+    targets = set(s[s['specific_hits'] > 0].index)
+
+    p = pd.read_table(options.phenotypes,
+                      index_col=0)
+
+    for strain in p.index:
+        if len(targets.intersection(genes.get(strain, set()))) >= options.threshold:
+            print('%s\t1' % strain)
+        else:
+            print('%s\t0' % strain)

@@ -87,8 +87,7 @@ sampled_ogs = pj(associations_dir, 'associated_ogs.faa')
 uniref = pj(associations_dir, 'associated_ogs.faa.uniref50.tsv')
 unirefnames = pj(associations_dir, 'associated_ogs.faa.uniref50.names.tsv')
 # restricted strains analysis
-restricted_phenotypes = pj(associations_dir, 'restricted_phenotypes.tsv')
-restricted_similarity = pj(associations_dir, 'restricted_gubbins.tsv')
+restricted_covariates = pj(associations_dir, 'restricted_covariates.tsv')
 associations_restricted = pj(associations_dir, 'associations_restricted.tsv')
 patterns_restricted = pj(associations_dir, 'patterns_restricted.txt')
 lineage_restricted = pj(associations_dir, 'lineage_restricted.tsv')
@@ -448,28 +447,24 @@ rule annotate_hits:
 
 rule:
   input:
-    phenotypes,
-    kmer_gene_count_lmm
+    p=phenotypes,
+    s=summary_cont_lmm_kmer,
+    r=roary
+  params:
+    r=roarycsv,
+    t=2
   output:
-    restricted_phenotypes
+    restricted_covariates
   shell:
-    'src/restrict_strains {input} --threshold 14 > {output}'
+    'src/restrict_strains {params.r} {input.s} {input.p} --threshold {params.t} > {output}'
 
 rule:
   input:
-    gubbins_similarities,
-    kmer_gene_count_lmm
-  output:
-    restricted_similarity
-  shell:
-    'src/restrict_similarity {input} --threshold 14 > {output}'
-
-rule:
-  input:
-    phenotype=restricted_phenotypes,
+    phenotype=phenotypes,
     kmers=kmers,
     dist=mash_distances,
-    sim=restricted_similarity
+    sim=gubbins_similarities,
+    cov=restricted_covariates
   output:
     associations=associations_restricted,
     patterns=patterns_restricted,
@@ -479,7 +474,7 @@ rule:
   params:
     dimensions=3
   shell:
-    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
+    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} --covariates {input.cov} --use-covariates 2 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
 
 rule:
   input:
