@@ -37,6 +37,9 @@ kmer_mappings_dir = pj(associations_dir, 'kmer_mappings')
 refseq_dir = pj(out, 'refseq')
 plots_dir = pj(out, 'plots')
 notebooks_dir = config.get('notebooks', 'notebooks')
+# simulations
+simulated_parsnp_tree_dir = pj(refseq_dir, 'parsnp')
+simulated_gubbins_tree_dir = pj(refseq_dir, 'gubbins')
 
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
@@ -108,6 +111,12 @@ eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
 unified_annotations = pj(associations_dir, 'associated_ogs.final.tsv')
 # power analysis
 odds_ratio = pj(associations_dir, 'odds_ratio.tsv')
+simulated_parsnp_tree = pj(simulated_parsnp_tree_dir, 'parsnp.tree')
+simulated_parsnp_xmfa = pj(simulated_parsnp_tree_dir, 'parsnp.xmfa')
+simulated_parsnp_alignment = pj(simulated_parsnp_tree_dir, 'parsnp.fasta')
+simulated_gubbins_tree = pj(simulated_gubbins_tree_dir, 'gubbins.final_tree.tre')
+simulated_polished_gubbins_tree = pj(simulated_gubbins_tree_dir, 'tree.nwk')
+simulated_gubbins_prefix = pj(simulated_gubbins_tree_dir, 'gubbins')
 # plots
 viz_tree = pj(plots_dir, '4_tree.pdf')
 # reports
@@ -566,12 +575,48 @@ rule:
     refseq_dir
   threads: 40
   shell:
-    'ncbi-genome-download bacteria --format fasta --output-folder {params} --parallel {threads} --retries 10 --genus "Escherichia coli" -vvv --metadata-table {output} --human-readable'
+    '''
+    ncbi-genome-download bacteria --format fasta --output-folder {params} --parallel {threads} --retries 10 --genus "Escherichia coli" -vvv --metadata-table {output} --human-readable --assembly-level complete
+    mkdir -p {params}/unpacked
+    src/unpack_genomes {params}/human_readable {params}/unpacked > unpack.sh && bash unpack.sh && rm -rf {params}/human_readable {params}/refseq
+    '''
+
+rule:
+  input: refseq
+  output: simulated_parsnp_tree
+  params:
+    genomes_dir=pj(refseq_dir, 'unpacked'),
+    outdir=simulated_parsnp_tree_dir,
+    focus=pj(refseq_dir, 'unpacked', 'genome001')
+  threads: 40
+  shell:
+    'parsnp -d {params.genomes_dir} -r {params.focus} -p {threads} -o {params.outdir} -v -c'
+
+rule:
+  input: simulated_parsnp_tree
+  output: simulated_parsnp_alignment
+  params: simulated_parsnp_xmfa
+  shell:
+    'harvesttools -x {params} -M {output}'
+
+rule:
+  input: simulated_parsnp_alignment
+  output: simulated_gubbins_tree
+  params: simulated_gubbins_prefix
+  threads: 40
+  shell:
+    'run_gubbins.py --verbose --threads {threads} {input} --prefix {params}'
+
+rule:
+  input: simulated_gubbins_tree
+  output: simulated_polished_gubbins_tree
+  shell:
+    'src/fix_tree_labels {input} {output}'
 
 rule simulations:
   input:
     odds_ratio,
-    refseq 
+    simulated_polished_gubbins_tree
 
 rule:
   input:
