@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+
+
+def get_options():
+    import argparse
+
+    description = 'Compute odds ratio for associated genes'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('associations',
+                        help='Associations table')
+    parser.add_argument('phenotypes',
+                        help='Phenotypes table')
+    parser.add_argument('roary',
+                        help='Roary\'s genes p[resence absence rtab file')
+
+    parser.add_argument('--phenotype-column',
+                        default=None,
+                        help='Phenotypes column [Default: last]')
+    
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import numpy as np
+    import pandas as pd
+
+    m = pd.read_table(options.associations,
+                      index_col=0,
+                      usecols=['variant',
+                               'lrt-pvalue'])['lrt-pvalue'].to_dict()
+
+    p = pd.read_table(options.phenotypes,
+                      index_col=0)
+    if options.phenotype_column is None:
+        p = p[p.columns[-1]]
+    else:
+        p = p[options.phenotype_column]
+
+    rtab = open(options.roary)
+    idx = rtab.readline().rstrip().split('\t')[1:]
+    p = p.loc[p.index.intersection(idx)]
+    print('OG\todds-ratio\tlrt-pvalue')
+    for l in rtab:
+        fields = l.rstrip().split('\t')
+        og = fields[0]
+        pa = pd.Series([int(x) for x in fields[1:]],
+                       index=idx)
+        table = [[len(p[p == 1].index.intersection(pa[pa == 1].index)),
+                  len(p[p == 0].index.intersection(pa[pa == 1].index))],
+                 [len(p[p == 1].index.intersection(pa[pa == 0].index)),
+                  len(p[p == 0].index.intersection(pa[pa == 0].index))]]
+        try:
+            odds_ratio = (table[0][0] * table[1][1]) / (table[0][1] * table[1][0])
+            print('%s\t%f\t%.2E' % (og, odds_ratio, m.get(og, np.nan)))
+        except ZeroDivisionError:
+            continue

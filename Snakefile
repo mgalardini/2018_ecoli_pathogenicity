@@ -16,8 +16,10 @@ input_file = pj(data, 'inputs.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
 genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
-report_template = pj(templates_dir, 'plots.ipynb')
 html_template = pj(templates_dir, 'html.tpl')
+# reports
+report1_template = pj(templates_dir, 'plots.ipynb')
+report2_template = pj(templates_dir, 'odds_ratio.ipynb')
 
 # binaries/databases
 # edit at will or change these settings with --config
@@ -102,10 +104,19 @@ summary_restricted = pj(associations_dir, 'summary_restricted.tsv')
 # offline annotation
 eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
 unified_annotations = pj(associations_dir, 'associated_ogs.final.tsv')
+# power analysis
+odds_ratio = pj(associations_dir, 'odds_ratio.tsv')
 # plots
 viz_tree = pj(plots_dir, '4_tree.pdf')
-report_nb = pj(notebooks_dir, 'plots.ipynb')
-report = pj(notebooks_dir, 'plots.html')
+# reports
+# associtions results
+report1_nb = pj(notebooks_dir, 'plots.ipynb')
+report1 = pj(notebooks_dir, 'plots.html')
+# odds ratio
+report2_nb = pj(notebooks_dir, 'odds_ratio.ipynb')
+report2 = pj(notebooks_dir, 'odds_ratio.html')
+# all reports
+reports = [report1, report2]
 
 rule annotate:
   input: annotations
@@ -538,6 +549,20 @@ rule restricted:
 
 rule:
   input:
+    associations_cont_lmm_rtab,
+    phenotypes,
+    roary
+  output:
+    odds_ratio
+  shell:
+    'src/get_odds_ratio {input} > {output}'
+
+rule simulations:
+  input:
+    odds_ratio 
+
+rule:
+  input:
     phenotypes,
     kmer_count_lmm,
     kmer_gene_count_lmm,
@@ -549,20 +574,32 @@ rule:
 
 rule:
   input:
-    rt=report_template,
+    rt=report1_template,
     ht=html_template,
     gd=gene_distances,
     sk=summary_cont_lmm_kmer,
     ua=unified_annotations
   output:
-    report
+    report1
   params:
-    report_nb
+    report1_nb
   shell:
     'python src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+
+rule:
+  input:
+    rt=report2_template,
+    ht=html_template,
+    odds=odds_ratio,
+  output:
+    report2
+  params:
+    report2_nb
+  shell:
+    'python src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
     viz_tree,
-    report
+    reports
     
