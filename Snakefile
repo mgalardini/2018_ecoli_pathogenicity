@@ -34,6 +34,7 @@ roary_dir = pj(out, 'roary')
 associations_dir = pj(out, 'associations')
 kmer_counts_dir = pj(associations_dir, 'kmer_counts')
 kmer_mappings_dir = pj(associations_dir, 'kmer_mappings')
+refseq_dir = pj(out, 'refseq')
 plots_dir = pj(out, 'plots')
 notebooks_dir = config.get('notebooks', 'notebooks')
 
@@ -55,6 +56,7 @@ parsnp_similarities = pj(out, 'parsnp.tsv')
 gubbins_similarities = pj(out, 'gubbins.tsv')
 roary = pj(roary_dir, 'gene_presence_absence.Rtab')
 roarycsv = pj(roary_dir, 'gene_presence_absence.csv')
+refseq = pj(refseq_dir, 'refseq.tsv')
 # associations
 # kmers
 associations_cont_lmm_kmer = pj(associations_dir, 'associations_cont_lmm_kmer.tsv')
@@ -557,9 +559,19 @@ rule:
   shell:
     'src/get_odds_ratio {input} > {output}'
 
+rule:
+  output:
+    refseq
+  params:
+    refseq_dir
+  threads: 40
+  shell:
+    'ncbi-genome-download bacteria --format fasta --output-folder {params} --parallel {threads} --retries 10 --genus "Escherichia coli" -vvv --metadata-table {output} --human-readable'
+
 rule simulations:
   input:
-    odds_ratio 
+    odds_ratio,
+    refseq 
 
 rule:
   input:
