@@ -291,7 +291,7 @@ rule:
   shell:
     '''
     python src/annotate_hits.py {input.fclk} {input.ref} {output.dclk} --tmp-prefix /tmp/ --roary {params.pangenome}
-    rm {params.gd}/*.pac {params.gd}/*.sa {params.gd}/*.amb {params.gd}/*.ann {params.gd}/*.bwt
+    rm -f {params.gd}/*.pac {params.gd}/*.sa {params.gd}/*.amb {params.gd}/*.ann {params.gd}/*.bwt
     '''
 
 rule:
@@ -519,7 +519,7 @@ rule:
   shell:
     '''
     python src/annotate_hits.py {input.fr} {input.ref} {output} --tmp-prefix /tmp/ --roary {params.pangenome}
-    rm {params.gd}/*.pac {params.gd}/*.sa {params.gd}/*.amb {params.gd}/*.ann {params.gd}/*.bwt
+    rm -f {params.gd}/*.pac {params.gd}/*.sa {params.gd}/*.amb {params.gd}/*.ann {params.gd}/*.bwt
     '''
 
 rule:
