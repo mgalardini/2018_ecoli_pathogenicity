@@ -40,6 +40,8 @@ notebooks_dir = config.get('notebooks', 'notebooks')
 # simulations
 simulated_parsnp_tree_dir = pj(refseq_dir, 'parsnp')
 simulated_gubbins_tree_dir = pj(refseq_dir, 'gubbins')
+simulated_annotations_dir = pj(refseq_dir, 'annotations')
+simulated_roary_dir = pj(refseq_dir, 'roary')
 
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
@@ -117,6 +119,7 @@ simulated_parsnp_alignment = pj(simulated_parsnp_tree_dir, 'parsnp.fasta')
 simulated_gubbins_tree = pj(simulated_gubbins_tree_dir, 'gubbins.final_tree.tre')
 simulated_polished_gubbins_tree = pj(simulated_gubbins_tree_dir, 'tree.nwk')
 simulated_gubbins_prefix = pj(simulated_gubbins_tree_dir, 'gubbins')
+simulated_roary = pj(simulated_roary_dir, 'gene_presence_absence.Rtab')
 # plots
 viz_tree = pj(plots_dir, '4_tree.pdf')
 # reports
@@ -569,17 +572,31 @@ rule:
     'src/get_odds_ratio {input} > {output}'
 
 rule:
+  input:
+    k12_genome
   output:
     refseq
   params:
-    refseq_dir
+    r=refseq_dir,
+    a=simulated_annotations_dir
   threads: 40
   shell:
     '''
-    ncbi-genome-download bacteria --format fasta --output-folder {params} --parallel {threads} --retries 10 --genus "Escherichia coli" -vvv --metadata-table {output} --human-readable --assembly-level complete
-    mkdir -p {params}/unpacked
-    src/unpack_genomes {params}/human_readable {params}/unpacked > unpack.sh && bash unpack.sh && rm -rf {params}/human_readable {params}/refseq
+    ncbi-genome-download bacteria --format fasta --output-folder {params.r} --parallel {threads} --retries 10 --genus "Escherichia coli" -vvv --metadata-table {output} --human-readable --assembly-level complete
+    mkdir -p {params.r}/unpacked
+    src/unpack_genomes {params.r}/human_readable {params.r}/unpacked > unpack.sh && bash unpack.sh && rm -rf {params.r}/human_readable {params.r}/refseq
+    for genome in $(ls {params.r}/unpacked); do prokka --outdir {params.a}/$genome --force --prefix $genome --addgenes --locustag $genome --mincontiglen 200 --genus Escherichia -species coli --strain $genome --proteins {input} --cpus {threads} {params.r}/unpacked/$genome; done
     '''
+
+rule:
+  input: refseq
+  output: simulated_roary
+  params:
+    r=simulated_roary_dir,
+    a=simulated_annotations_dir
+  threads: 40
+  shell:
+    'rm -rf {params.r} && roary -p {threads} -f {params.r} -s -v -g 100000 {params.a}/*/*.gff'
 
 rule:
   input: refseq
@@ -616,6 +633,7 @@ rule:
 rule simulations:
   input:
     odds_ratio,
+    simulated_roary,
     simulated_polished_gubbins_tree
 
 rule:
