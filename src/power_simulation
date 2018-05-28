@@ -45,7 +45,7 @@ def pcase(OR, maf, sr):
 
 def get_threshold(roary, error_rate=0.05):
     patterns = set()
-    for k, v in roary.iteritems():
+    for k, v in roary.T.iteritems():
         patterns.add(hash_pattern(v.values.astype(float)))
     return error_rate/float(len(patterns))
 
