@@ -21,9 +21,11 @@ html_template = pj(templates_dir, 'html.tpl')
 report1_template = pj(templates_dir, 'plots.ipynb')
 report2_template = pj(templates_dir, 'odds_ratio.ipynb')
 
-# binaries/databases
+# configurable stuff
 # edit at will or change these settings with --config
 uniref50 = config.get('uniref50', 'db/uniref50')
+power_ogs = 'pks2,group_1661'
+simulated_power_ogs = 'group_7955,fabG'
 
 # output directories
 out = config.get('out', 'out')
@@ -113,6 +115,7 @@ eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
 unified_annotations = pj(associations_dir, 'associated_ogs.final.tsv')
 # power analysis
 odds_ratio = pj(associations_dir, 'odds_ratio.tsv')
+power_analysis = pj(associations_dir, 'power_analysis.tsv')
 simulated_parsnp_tree = pj(simulated_parsnp_tree_dir, 'parsnp.tree')
 simulated_parsnp_xmfa = pj(simulated_parsnp_tree_dir, 'parsnp.xmfa')
 simulated_parsnp_alignment = pj(simulated_parsnp_tree_dir, 'parsnp.fasta')
@@ -121,6 +124,7 @@ simulated_polished_gubbins_tree = pj(simulated_gubbins_tree_dir, 'tree.nwk')
 simulated_gubbins_prefix = pj(simulated_gubbins_tree_dir, 'gubbins')
 simulated_gubbins_similarities = pj(refseq_dir, 'gubbins.tsv')
 simulated_roary = pj(simulated_roary_dir, 'gene_presence_absence.Rtab')
+simulated_power_analysis = pj(refseq_dir, 'power_analysis.tsv')
 # plots
 viz_tree = pj(plots_dir, '4_tree.pdf')
 # reports
@@ -641,11 +645,33 @@ rule:
     python src/phylogeny_distance.py --calc-C {input} > {output}
     '''
 
+rule:
+  input:
+    roary,
+    gubbins_similarities
+  output:
+    power_analysis
+  params:
+    power_ogs
+  shell:
+    'src/power_simulation {input} {params} > {output}'
+
+rule:
+  input:
+    simulated_roary,
+    simulated_gubbins_similarities
+  output:
+    simulated_power_analysis
+  params:
+    simulated_power_ogs
+  shell:
+    'src/power_simulation {input} {params} > {output}'
+
 rule simulations:
   input:
     odds_ratio,
-    simulated_roary,
-    simulated_gubbins_similarities
+    power_analysis,
+    simulated_power_analysis
 
 rule:
   input:
