@@ -20,6 +20,7 @@ html_template = pj(templates_dir, 'html.tpl')
 # reports
 report1_template = pj(templates_dir, 'plots.ipynb')
 report2_template = pj(templates_dir, 'odds_ratio.ipynb')
+report3_template = pj(templates_dir, 'simulations.ipynb')
 
 # configurable stuff
 # edit at will or change these settings with --config
@@ -134,8 +135,11 @@ report1 = pj(notebooks_dir, 'plots.html')
 # odds ratio
 report2_nb = pj(notebooks_dir, 'odds_ratio.ipynb')
 report2 = pj(notebooks_dir, 'odds_ratio.html')
+# power analysis
+report3_nb = pj(notebooks_dir, 'simulations.ipynb')
+report3 = pj(notebooks_dir, 'simulations.html')
 # all reports
-reports = [report1, report2]
+reports = [report1, report2, report3]
 
 rule annotate:
   input: annotations
@@ -709,6 +713,19 @@ rule:
     report2_nb
   shell:
     'python src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+
+rule:
+  input:
+    rt=report3_template,
+    ht=html_template,
+    s1=power_analysis,
+    s2=simulated_power_analysis
+  output:
+    report3
+  params:
+    report3_nb
+  shell:
+    'python src/run_notebook.py {input.rt} {params} -k simulations1=../{input.s1} -k simulations2=../{input.s2} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
