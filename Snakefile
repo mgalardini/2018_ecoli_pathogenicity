@@ -119,6 +119,7 @@ simulated_parsnp_alignment = pj(simulated_parsnp_tree_dir, 'parsnp.fasta')
 simulated_gubbins_tree = pj(simulated_gubbins_tree_dir, 'gubbins.final_tree.tre')
 simulated_polished_gubbins_tree = pj(simulated_gubbins_tree_dir, 'tree.nwk')
 simulated_gubbins_prefix = pj(simulated_gubbins_tree_dir, 'gubbins')
+simulated_gubbins_similarities = pj(refseq_dir, 'gubbins.tsv')
 simulated_roary = pj(simulated_roary_dir, 'gene_presence_absence.Rtab')
 # plots
 viz_tree = pj(plots_dir, '4_tree.pdf')
@@ -630,11 +631,21 @@ rule:
   shell:
     'src/fix_tree_labels {input} {output}'
 
+rule:
+  input:
+    simulated_polished_gubbins_tree
+  output:
+    simulated_gubbins_similarities
+  shell:
+    '''
+    python src/phylogeny_distance.py --calc-C {input} > {output}
+    '''
+
 rule simulations:
   input:
     odds_ratio,
     simulated_roary,
-    simulated_polished_gubbins_tree
+    simulated_gubbins_similarities
 
 rule:
   input:

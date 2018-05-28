@@ -1,0 +1,124 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Power analysis for gene presence/absence'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('roary',
+                        help='Roary\'s rtab output')
+    parser.add_argument('similarities',
+                        help='Strain\'s similarities table')
+    parser.add_argument('groups',
+                        help='OG(s) to test (comma separated)')
+    
+    parser.add_argument('--alpha',
+                        type=float,
+                        default=0.05,
+                        help='Family-wise error rate [Default: 0.05]')
+
+    return parser.parse_args()
+
+
+def pcase(OR, maf, sr):
+    '''Generate probabilities of being a case having or not having a variant
+    
+    Given an odds ratio, a MAF and a case/control ratio
+    
+    Thanks to John Lees for the implementation
+    '''
+    m1 = sr / (sr + 1)
+    
+    a = OR - 1
+    b = -((m1 + maf) * OR - m1 + 1 - maf)
+    c = OR * m1 * maf
+    
+    a1 = (-b -np.power(np.power(b, 2) - 4 * a * c, 0.5)) / (2 * a)
+    
+    pe = a1 / maf
+    pne = (m1 - a1)/(1 - maf)
+    
+    return pe, pne
+
+
+def get_threshold(roary, error_rate=0.05):
+    patterns = set()
+    for k, v in roary.iteritems():
+        patterns.add(hash_pattern(v.values.astype(float)))
+    return error_rate/float(len(patterns))
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import random
+    import numpy as np
+    import pandas as pd
+    from pyseer.classes import LMM
+    from pyseer.input import hash_pattern
+    from pyseer.lmm import initialise_lmm, fit_lmm
+
+    res = []
+    roary = pd.read_table(options.roary,
+                          index_col=0)
+    # genes = ['pks2', 'group_1661']
+    genes = options.groups.split(',')
+    print(genes)
+    strains = list(roary.columns)
+    for size in list(range(20, roary.shape[1], 50)) + [roary.shape[1]]:
+        pg = roary.copy(deep=True)
+        if size != roary.shape[1]:
+            random.shuffle(strains)
+            pg = pg[strains[:size]]
+        threshold = get_threshold(pg, options.alpha)
+        pg = pg.loc[genes]
+        pstrains = pg.columns
+        for i in range(100):
+            for OR in np.logspace(0.1, 4, 10, base=np.e):
+                for k, v in pg.T.iteritems():
+                    maf = min((v[v == 1].shape[0]/v.shape[0],
+                               v[v == 0].shape[0]/v.shape[0]))
+                    pe, pne = pcase(OR, maf, 1)
+                    p = []
+                    for var in v:
+                        rand = random.random()
+                        if (var == 1 and rand < pe) or (var == 0 and rand < pne):
+                            p.append(1)
+                        else:
+                            p.append(0)
+                    p = pd.Series(p,
+                                  index=pstrains)
+                    p, lmm, h2 = initialise_lmm(p,
+                                                pd.DataFrame([]),
+                                                options.similarities,
+                                                lmm_cache_in=None,
+                                                lmm_cache_out=None)
+                    obj = LMM('test', 0, 0, np.nan,
+                              np.nan, np.nan, np.nan, np.nan,
+                              np.nan, [], [],
+                              set(), True, True)
+                    out = fit_lmm(lmm, h2,
+                                  [(obj, p.values, v), ],
+                                  v.values.reshape(-1, 1),
+                                  False,
+                                  pd.DataFrame([]).values,
+                                  pd.DataFrame([]).values,
+                                  True,
+                                  1,
+                                  1)[0]
+                    res.append((size, OR, k, maf, threshold, out.pvalue, out.pvalue < threshold))
+
+    r = pd.DataFrame(res,
+                     columns=['size',
+                              'OR',
+                              'og',
+                              'maf',
+                              'threshold',
+                              'pvalue',
+                              'pass'])
+    r.to_csv(sys.stdout,
+             sep='\t',
+             index=False)

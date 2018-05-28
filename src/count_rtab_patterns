@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Calculate a p-value from a roary output'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('roary',
+                        help='Roary\'s presence absence binary matrix')
+
+    parser.add_argument('--alpha',
+                        default=0.05,
+                        type=float,
+                        help='Family-wise error rate [Default: 0.05]')
+    
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import pandas as pd
+    from decimal import Decimal
+    from pyseer.input import hash_pattern
+
+    r = pd.read_table(options.roary,
+                      index_col=0)
+
+    hashes = set()
+    for k, v in r.T.iteritems():
+        hashes.add(hash_pattern(v.values.astype(float)))
+
+    print('%.2E' % (options.alpha/float(len(hashes))))
