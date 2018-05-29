@@ -707,12 +707,13 @@ rule:
     rt=report2_template,
     ht=html_template,
     odds=odds_ratio,
+    f=filtered_cont_lmm_rtab
   output:
     report2
   params:
     report2_nb
   shell:
-    'python src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:
