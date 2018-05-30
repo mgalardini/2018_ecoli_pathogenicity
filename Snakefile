@@ -21,6 +21,7 @@ html_template = pj(templates_dir, 'html.tpl')
 report1_template = pj(templates_dir, 'plots.ipynb')
 report2_template = pj(templates_dir, 'odds_ratio.ipynb')
 report3_template = pj(templates_dir, 'simulations.ipynb')
+report4_template = pj(templates_dir, 'virulence_genes.ipynb')
 
 # configurable stuff
 # edit at will or change these settings with --config
@@ -46,6 +47,8 @@ simulated_gubbins_tree_dir = pj(refseq_dir, 'gubbins')
 simulated_annotations_dir = pj(refseq_dir, 'annotations')
 simulated_roary_dir = pj(refseq_dir, 'roary')
 
+# inputs but generated manualy during the analysis
+virulence = pj(out, 'virulence_genes.tsv')
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
                for x in strains]
@@ -138,8 +141,11 @@ report2 = pj(notebooks_dir, 'odds_ratio.html')
 # power analysis
 report3_nb = pj(notebooks_dir, 'simulations.ipynb')
 report3 = pj(notebooks_dir, 'simulations.html')
+# virulence genes
+report4_nb = pj(notebooks_dir, 'virulence_genes.ipynb')
+report4 = pj(notebooks_dir, 'virulence_genes.html')
 # all reports
-reports = [report1, report2, report3]
+reports = [report1, report2, report3, report4]
 
 rule annotate:
   input: annotations
@@ -727,6 +733,24 @@ rule:
     report3_nb
   shell:
     'python src/run_notebook.py {input.rt} {params} -k simulations1=../{input.s1} -k simulations2=../{input.s2} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+
+rule:
+  input:
+    rt=report4_template,
+    ht=html_template,
+    o=odds_ratio,
+    v=virulence,
+    f=summary_cont_lmm_kmer,
+    n=unified_annotations,
+    p=phenotypes,
+    t=polished_gubbins_tree,
+    r=roary
+  output:
+    report4
+  params:
+    report4_nb
+  shell:
+    'python src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.o} -k virulence=../{input.v} -k filtered=../{input.f} -k names=../{input.n} -k phenotypes=../{input.p} -k tree=../{input.t} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
