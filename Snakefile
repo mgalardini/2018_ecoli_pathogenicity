@@ -17,11 +17,15 @@ strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
 genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
 html_template = pj(templates_dir, 'html.tpl')
+# urls for online data
+ecoref_phenotypes = 'https://evocellnet.github.io/ecoref/data/phenotypic_data.tsv'
+ecoref_strains = 'https://evocellnet.github.io/ecoref/data/strains.tsv'
 # reports
 report1_template = pj(templates_dir, 'plots.ipynb')
 report2_template = pj(templates_dir, 'odds_ratio.ipynb')
 report3_template = pj(templates_dir, 'simulations.ipynb')
 report4_template = pj(templates_dir, 'virulence_genes.ipynb')
+report5_template = pj(templates_dir, 'chemical.ipynb')
 
 # configurable stuff
 # edit at will or change these settings with --config
@@ -144,8 +148,13 @@ report3 = pj(notebooks_dir, 'simulations.html')
 # virulence genes
 report4_nb = pj(notebooks_dir, 'virulence_genes.ipynb')
 report4 = pj(notebooks_dir, 'virulence_genes.html')
+# comparison with ecoref phenotypes
+report5_nb = pj(notebooks_dir, 'chemical.ipynb')
+report5 = pj(notebooks_dir, 'chemical.html')
 # all reports
-reports = [report1, report2, report3, report4]
+reports = [report1, report2,
+           report3, report4,
+           report5]
 
 rule annotate:
   input: annotations
@@ -751,6 +760,24 @@ rule:
     report4_nb
   shell:
     'python src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.o} -k virulence=../{input.v} -k filtered=../{input.f} -k names=../{input.n} -k phenotypes=../{input.p} -k tree=../{input.t} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+ 
+rule:
+  input:
+    rt=report5_template,
+    ht=html_template,
+    p2=phenotypes,
+    g=genomes_dir,
+    f=summary_cont_lmm_kmer,
+    r=roary
+  output:
+    report5
+  params:
+    r=report5_nb,
+    s=ecoref_strains,
+    p1=ecoref_phenotypes,
+  threads: 20
+  shell:
+    'python src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
