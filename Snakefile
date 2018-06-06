@@ -30,7 +30,7 @@ report5_template = pj(templates_dir, 'chemical.ipynb')
 # configurable stuff
 # edit at will or change these settings with --config
 uniref50 = config.get('uniref50', 'db/uniref50')
-power_ogs = 'pks2,group_1661'
+power_ogs = 'pks2,group_2650'
 simulated_power_ogs = 'group_7955,fabG'
 
 # output directories
@@ -175,7 +175,7 @@ rule:
     genomes_dir=genomes_dir,
     outdir=parsnp_tree_dir,
     focus=pj(genomes_dir, 'IAI01.fasta')
-  threads: 20
+  threads: 40
   shell:
     'parsnp -d {params.genomes_dir} -r {params.focus} -p {threads} -o {params.outdir} -v -c'
 
@@ -196,7 +196,7 @@ rule:
   input: parsnp_alignment
   output: gubbins_tree
   params: gubbins_prefix
-  threads: 20
+  threads: 40
   shell:
     'run_gubbins.py --verbose --threads {threads} {input} --prefix {params}'
 
@@ -245,7 +245,7 @@ rule pangenome:
   input: annotations
   output: roary
   params: roary_dir
-  threads: 20
+  threads: 40
   shell:
     'rm -rf {params} && roary -p {threads} -f {params} -s -v -g 100000 {input}'
 
