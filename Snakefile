@@ -735,7 +735,7 @@ rule:
   params:
     report1_nb
   shell:
-    'python src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=6000'
 
 rule:
   input:
@@ -748,7 +748,7 @@ rule:
   params:
     report2_nb
   shell:
-    'python src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:
@@ -761,7 +761,7 @@ rule:
   params:
     report3_nb
   shell:
-    'python src/run_notebook.py {input.rt} {params} -k simulations1=../{input.s1} -k simulations2=../{input.s2} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k simulations1=../{input.s1} -k simulations2=../{input.s2} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:
@@ -773,13 +773,15 @@ rule:
     n=unified_annotations,
     p=phenotypes,
     t=polished_gubbins_tree,
-    r=roary
+    r=roary,
+    spangenome=sampled_pangenome,
+    mapping=kmer_mappings_dir
   output:
     report4
   params:
     report4_nb
   shell:
-    'python src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.o} -k virulence=../{input.v} -k filtered=../{input.f} -k names=../{input.n} -k phenotypes=../{input.p} -k tree=../{input.t} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.o} -k virulence=../{input.v} -k filtered=../{input.f} -k tnames=../{input.n} -k phenotypes=../{input.p} -k tree=../{input.t} -k rtab=../{input.r} -k spangenome=../{input.spangenome} -k mapping=../{input.mapping} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule:
   input:
@@ -797,7 +799,7 @@ rule:
     p1=ecoref_phenotypes,
   threads: 20
   shell:
-    'python src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
