@@ -16,6 +16,14 @@ input_file = pj(data, 'inputs.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
 genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
+rna_samples_file = pj(data, 'rna_samples.tsv')
+rna_samples = {x.rstrip().split('\t')[0] for x in open(rna_samples_file)
+               if x.rstrip().split('\t')[0] != 'strain'}
+rna_reads = [(x.rstrip().split('\t')[0],
+	      x.rstrip().split('\t')[1],
+              x.rstrip().split('\t')[2])
+             for x in open(rna_samples_file)
+             if x.rstrip().split('\t')[0] != 'strain']
 html_template = pj(templates_dir, 'html.tpl')
 # urls for online data
 ecoref_phenotypes = 'https://evocellnet.github.io/ecoref/data/phenotypic_data.tsv'
@@ -32,6 +40,8 @@ report5_template = pj(templates_dir, 'chemical.ipynb')
 uniref50 = config.get('uniref50', 'db/uniref50')
 power_ogs = 'pks2,group_2650'
 simulated_power_ogs = 'group_7955,fabG'
+trimmomatic_dir = config.get('trimmomatic_dir',
+                             'software/trimmomatic-0.36-5/share/trimmomatic')
 
 # output directories
 out = config.get('out', 'out')
@@ -43,6 +53,7 @@ associations_dir = pj(out, 'associations')
 kmer_counts_dir = pj(associations_dir, 'kmer_counts')
 kmer_mappings_dir = pj(associations_dir, 'kmer_mappings')
 refseq_dir = pj(out, 'refseq')
+rna_dir = pj(out, 'rna')
 plots_dir = pj(out, 'plots')
 notebooks_dir = config.get('notebooks', 'notebooks')
 # simulations
@@ -72,6 +83,13 @@ gubbins_similarities = pj(out, 'gubbins.tsv')
 roary = pj(roary_dir, 'gene_presence_absence.Rtab')
 roarycsv = pj(roary_dir, 'gene_presence_absence.csv')
 sampled_pangenome = pj(roary_dir, 'sampled_pangenome.faa')
+transcripts = [pj(annotations_dir, x, x + '.transcripts')
+               for x in rna_samples]
+indexes = [pj(annotations_dir, x, x + '.index')
+           for x in rna_samples]
+rna_counts = [pj(rna_dir, x[0], x[1], 'abundance.tsv')
+              for x in rna_reads]
+de_genes = pj(rna_dir, 'overall.csv')
 refseq = pj(refseq_dir, 'refseq.tsv')
 # associations
 # kmers
@@ -254,6 +272,17 @@ rule:
     'src/sample_pangenome {params.pangenome} {params.annotations} --focus-strain IAI39 --focus-strain IAI01 > {output}'
 
 rule:
+  input:
+    pj(annotations_dir, '{strain}', '{strain}.gff'),
+    roary
+  output: pj(annotations_dir, '{strain}', '{strain}.transcripts')
+  params:
+    anndir=annotations_dir,
+    roarycsv=roarycsv
+  shell:
+    'src/pangenome2transcripts {params.roarycsv} {params.anndir} {wildcards.strain} --reference IAI39 > {output}'
+
+rule:
   input: annotations
   output: roary
   params: roary_dir
@@ -263,7 +292,47 @@ rule:
 
 rule pangenome:
   input:
-    roary, sampled_pangenome
+    roary, sampled_pangenome, transcripts
+
+rule:
+  input:
+    pj(annotations_dir, '{strain}', '{strain}.transcripts')
+  output:
+    pj(annotations_dir, '{strain}', '{strain}.index')
+  shell:
+    'kallisto index -i {output} {input}'
+
+rule:
+  input:
+    index=pj(annotations_dir, '{strain}', '{strain}.index'),
+    rf=rna_samples_file,
+  output:
+    pj(rna_dir, '{strain}', '{replica}', 'abundance.tsv')
+  params:
+    odir1=pj(rna_dir, '{strain}'),
+    odir=pj(rna_dir, '{strain}', '{replica}'),
+    tdir=trimmomatic_dir,
+    average=130,
+    sd=70
+  shell:
+    'mkdir -p {params.odir1} && trimmomatic SE $(awk \'{{if ($1 == "{wildcards.strain}" && $2 == "{wildcards.replica}") print $3}}\' {input.rf}) /dev/stdout ILLUMINACLIP:{params.tdir}/adapters/TruSeq3-SE.fa:2:30:10 | kallisto quant -b 100 -i {input.index} -o {params.odir} --bias --single -l {params.average} -s {params.sd} /dev/stdin'
+
+rule:
+  input:
+    rna_counts,
+    rf=rna_samples_file
+  output:
+    de_genes
+  params:
+    rna_dir
+  threads: 40
+  shell:
+    'Rscript src/deseq.R {input.rf} {params} --cores {threads} --pvalue 0.01 --foldchange 0.0 --reference IAI55'
+
+rule transcriptomics:
+  input:
+    indexes,
+    de_genes
 
 rule:
   input:

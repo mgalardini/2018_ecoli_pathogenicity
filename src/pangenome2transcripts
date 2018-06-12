@@ -1,0 +1,145 @@
+#!/usr/bin/env python
+
+__author__ = "Marco Galardini"
+__version__ = "0.0.1"
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Extract putative transcripts from a series of gff files"
+    parser = argparse.ArgumentParser(description=description,
+                                     prog='pangenome2genes')
+    
+    parser.add_argument('pangenome', action='store',
+                        help='Roary\'s gene presence absence file')
+    parser.add_argument('gffdir', action='store',
+                        help='GFF files directory (format: COLUMN_ID/COLUMN_ID.gff)')
+    parser.add_argument('priority', action='store',
+                        help='Priority strain (i.e. Roary\'s column)')
+    
+    parser.add_argument('--reference', action='store',
+                        default=None,
+                        help='Only consider genes from a specific organism [Default: full pangenome]')
+    
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import os
+    import sys
+    import pandas as pd
+    from BCBio import GFF
+    
+    options = get_options()
+
+    # Load roary
+    roary = pd.read_table(options.pangenome,
+                          sep=',',
+                          low_memory=False)
+    # Set index (group name)
+    roary.set_index('Gene', inplace=True)
+    # Drop the other info columns
+    roary.drop(list(roary.columns[:13]), axis=1, inplace=True) 
+
+    # Focus on a "reference" strain only?
+    rd = {}
+    if options.reference is not None:
+        roary = roary.loc[roary[options.reference].dropna().index]
+        for k, v in roary[options.reference].iteritems():
+            for vg in v.split('\t'):
+                rd[vg.split('___')[0]] = k
+        roary.index = roary[options.reference]
+        roary.index.name = 'Gene'
+    
+    # Prepare all the GFF files parsers
+    parsers = {}
+    for column in roary.columns:
+        parsers[column] = GFF.parse(os.path.join(options.gffdir,
+                                                 column,
+                                                 '%s.gff' % column))
+    # Parse the "priority" strain
+    genes = {}
+    gnames = roary[
+            options.priority
+            ].dropna().reset_index().set_index(
+                    options.priority
+                    )['Gene'].to_dict()
+    # There might still be some in-paralogs there
+    add = {}
+    for k,v in gnames.items():
+        if '\t' in k:
+            for k1 in k.split('\t'):
+                add[k1] = v
+        if '___' in k:
+            for k1 in k.split('\t'):
+                add[k1.split('___')[0]] = v
+    for k, v in add.items():
+        gnames[k] = v
+    genes[options.priority] = {}
+    unnamed = 1
+    for s in parsers[options.priority]:
+        for f in filter(lambda x: x.type == 'gene',
+                        s.features):
+            # Name
+            # Try first with the locus_tag
+            try:
+                name = f.qualifiers['locus_tag'][0]
+            except:
+                name = 'unnamed_%d' % unnamed
+                unnamed += 1
+
+            name = gnames.get(name, name)
+
+            # Sequence
+            seq = str(f.extract(s).seq)
+
+            genes[options.priority][name] = seq
+
+    # Go gene by gene
+    for gene in roary.index:
+        agenes = roary.loc[gene].dropna()
+        if options.priority in agenes.index:
+            print('>%s\n%s' % (rd.get(gene, gene), genes[options.priority][gene]))
+        else:
+            # Pick the first column, parse it
+            strain = list(agenes.index)[0]
+            gnames = roary[
+                    strain
+                    ].dropna().reset_index().set_index(
+                            strain
+                            )['Gene'].to_dict()
+            # There might still be some in-paralogs there
+            add = {}
+            for k,v in gnames.items():
+                if '\t' in k:
+                    for k1 in k.split('\t'):
+                        add[k1] = v
+                if '___' in k:
+                    for k1 in k.split('\t'):
+                        add[k1.split('___')[0]] = v
+            for k, v in add.items():
+                gnames[k] = v
+            if strain not in genes or len(genes[strain]) == 0:
+                # parse
+                genes[strain] = {}
+                for s in parsers[strain]:
+                    for f in filter(lambda x: x.type == 'gene',
+                                    s.features):
+                        # Name
+                        # Try first with the locus_tag
+                        try:
+                            name = f.qualifiers['locus_tag'][0]
+                        except:
+                            name = 'unnamed_%d' % unnamed
+                            unnamed += 1
+
+                        name = gnames.get(name, name)
+
+                        # Sequence
+                        seq = str(f.extract(s).seq)
+
+                        genes[strain][name] = seq
+            print('>%s\n%s' % (rd.get(gene, gene), genes[strain][gene]))
