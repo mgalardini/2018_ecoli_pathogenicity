@@ -769,7 +769,7 @@ rule:
     ht=html_template,
     o=odds_ratio,
     v=virulence,
-    f=summary_cont_lmm_kmer,
+    f=filtered_cont_lmm_rtab,
     n=unified_annotations,
     p=phenotypes,
     t=polished_gubbins_tree,
