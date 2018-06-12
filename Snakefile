@@ -71,6 +71,7 @@ parsnp_similarities = pj(out, 'parsnp.tsv')
 gubbins_similarities = pj(out, 'gubbins.tsv')
 roary = pj(roary_dir, 'gene_presence_absence.Rtab')
 roarycsv = pj(roary_dir, 'gene_presence_absence.csv')
+sampled_pangenome = pj(roary_dir, 'sampled_pangenome.faa')
 refseq = pj(refseq_dir, 'refseq.tsv')
 # associations
 # kmers
@@ -241,13 +242,28 @@ rule similarity:
     python src/phylogeny_distance.py --calc-C {input.gubbins} > {output.gout}
     '''
 
-rule pangenome:
+rule:
+  input:
+    roary=roary
+  params:
+    pangenome=roarycsv,
+    annotations=annotations_dir
+  output:
+    sampled_pangenome
+  shell:
+    'src/sample_pangenome {params.pangenome} {params.annotations} --focus-strain IAI39 --focus-strain IAI01 > {output}'
+
+rule:
   input: annotations
   output: roary
   params: roary_dir
   threads: 40
   shell:
     'rm -rf {params} && roary -p {threads} -f {params} -s -v -g 100000 {input}'
+
+rule pangenome:
+  input:
+    roary, sampled_pangenome
 
 rule:
   input:
