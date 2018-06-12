@@ -495,11 +495,15 @@ rule:
 rule:
   input:
     fclk=filtered_cont_lmm_kmer,
-    genome=pj(genomes_dir, '{strain}.fasta')
+    genome=pj(genomes_dir, '{strain}.fasta'),
+    gff=pj(annotations_dir, '{strain}', '{strain}.gff'),
+    roary=roary
+  params:
+    roarycsv
   output:
     pj(kmer_mappings_dir, '{strain}.tsv')
   shell:
-    'src/map_back {input.fclk} {input.genome} --bwa-algorithm fastmap --print-details > {output}'
+    'mkdir -p tmp_map_back_{wildcards.strain} && src/map_back {input.fclk} {input.genome} --bwa-algorithm fastmap --print-details --tmp-prefix tmp_map_back_{wildcards.strain} --gff {input.gff} --roary {params} > {output} && rm -rf tmp_map_back_{wildcards.strain}'
 
 rule annotate_hits:
   input:
