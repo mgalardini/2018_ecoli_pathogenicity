@@ -90,6 +90,7 @@ indexes = [pj(annotations_dir, x, x + '.index')
 rna_counts = [pj(rna_dir, x[0], x[1], 'abundance.tsv')
               for x in rna_reads]
 de_genes = pj(rna_dir, 'overall.csv')
+fold_changes = pj(rna_dir, 'fold_changes.tsv')
 refseq = pj(refseq_dir, 'refseq.tsv')
 # associations
 # kmers
@@ -329,10 +330,19 @@ rule:
   shell:
     'Rscript src/deseq.R {input.rf} {params} --cores {threads} --pvalue 0.01 --foldchange 0.0 --reference IAI55'
 
+rule:
+  input:
+    de_genes
+  output:
+    fold_changes
+  params:
+    rna_dir
+  shell:
+    'src/merge_fold_changes $(find {params} -type f -name \'*.csv\' ! -wholename \'{input}\') > {output}'
+
 rule transcriptomics:
   input:
-    indexes,
-    de_genes
+    fold_changes
 
 rule:
   input:
