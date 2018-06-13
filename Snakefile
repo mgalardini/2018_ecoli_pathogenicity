@@ -854,13 +854,14 @@ rule:
     t=polished_gubbins_tree,
     r=roary,
     spangenome=sampled_pangenome,
-    mapping=kmer_mappings_dir
+    mapping=kmer_mappings_dir,
+    fold=fold_changes
   output:
     report4
   params:
     report4_nb
   shell:
-    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.o} -k virulence=../{input.v} -k filtered=../{input.f} -k tnames=../{input.n} -k phenotypes=../{input.p} -k tree=../{input.t} -k rtab=../{input.r} -k spangenome=../{input.spangenome} -k mapping=../{input.mapping} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.o} -k virulence=../{input.v} -k filtered=../{input.f} -k tnames=../{input.n} -k phenotypes=../{input.p} -k tree=../{input.t} -k rtab=../{input.r} -k spangenome=../{input.spangenome} -k mapping=../{input.mapping} -k fold_changes=../{input.fold} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule:
   input:
