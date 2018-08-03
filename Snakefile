@@ -811,7 +811,8 @@ rule:
     phenotypes,
     kmer_count_lmm,
     kmer_gene_count_lmm,
-    rtab_gene_count_lmm
+    rtab_gene_count_lmm,
+    baps_clusters
   output:
     viz_tree
   shell:

@@ -17,15 +17,21 @@ def get_options():
                         help='Genes from kmers file')
     parser.add_argument('genes', action='store',
                         help='Genes file')
+    parser.add_argument('structure', action='store',
+                        help='BAPS clusters file')
     parser.add_argument('out', action='store',
                         help='Output directory')
 
     parser.add_argument('--labels', action='store_true',
                         default=False,
                         help='Show strain labels')
-    parser.add_argument('--only-phenotype', action='store_true',
-                        default=False,
-                        help='Only show the phenotpyes')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--only-phenotype', action='store_true',
+                      default=False,
+                      help='Only show the phenotpyes')
+    mode.add_argument('--only-phenotype-baps', action='store_true',
+                      default=False,
+                      help='Only show the phenotpyes and baps clusters')
     parser.add_argument('--width', action='store',
                         type=float,
                         default=10,
@@ -61,6 +67,7 @@ if __name__ == "__main__":
     import seaborn as sns
     import matplotlib.pyplot as plt
     import matplotlib.colors as colors
+    import matplotlib.patches as patches
     from ete3 import TreeStyle, NodeStyle, Tree, RectFace
 
     # output files
@@ -78,6 +85,9 @@ if __name__ == "__main__":
                                                 options.extension))
     gfile = os.path.join(options.out,
                          '%sgenes.%s' % (options.prefix,
+                                         options.extension))
+    bfile = os.path.join(options.out,
+                         '%sbaps.%s' % (options.prefix,
                                          options.extension))
     #
     
@@ -115,6 +125,13 @@ if __name__ == "__main__":
           for x,y in zip(range(max(g.values())+1),
                          sns.color_palette('Blues',
                                            max(g.values())+1))}
+    
+    bc = pd.read_table(options.structure,
+                       index_col=0)['level 1'].to_dict()
+    bcc = {x: y
+           for x,y in zip(range(1, max(bc.values())+1),
+                          sns.color_palette('Set2',
+                                            max(bc.values())))}
                             
     # tree
     tree = get_tree(options.tree)
@@ -126,12 +143,16 @@ if __name__ == "__main__":
             n.set_style(inner)
             continue
 
+        if not options.only_phenotype_baps:
+            i = 0
+        else:
+            i = 1
         r = RectFace(30, 15,
                      colors.rgb2hex(color[pcont.get(n.name, 0)]),
                      colors.rgb2hex(color[pcont.get(n.name, 0)]))
-        n.add_face(r, 0,
+        n.add_face(r, i,
                    position="aligned")
-        if not options.only_phenotype:
+        if not options.only_phenotype and not options.only_phenotype_baps:
             r = RectFace(30, 15,
                          colors.rgb2hex(kc[k.get(n.name, 0)]),
                          colors.rgb2hex(kc[k.get(n.name, 0)]))
@@ -147,11 +168,17 @@ if __name__ == "__main__":
                          colors.rgb2hex(gc[g.get(n.name, 0)]))
             n.add_face(r, 3,
                        position="aligned")
+        elif options.only_phenotype_baps:
+            r = RectFace(30, 15,
+                         colors.rgb2hex(bcc[bc.get(n.name, 0)]),
+                         colors.rgb2hex(bcc[bc.get(n.name, 0)]))
+            n.add_face(r, 0,
+                       position="aligned")
 
     circular_style = TreeStyle()
     circular_style.mode = "c"
     circular_style.scale = None
-    circular_style.arc_start = -180
+    circular_style.arc_start = 90
     circular_style.arc_span = 180
     if options.labels:
         circular_style.show_leaf_name = True
@@ -178,7 +205,7 @@ if __name__ == "__main__":
     plt.xticks((0, 50, 100),
                [str(x) for x in (0, mmax//2, mmax)])
     plt.yticks([])
-    plt.title('Mice killed')
+    plt.title('Infected individuals')
     
     plt.savefig(pfile,
                 dpi=options.dpi)
@@ -241,3 +268,23 @@ if __name__ == "__main__":
                 dpi=options.dpi)
 
     plt.clf()
+
+    plt.figure(figsize=(4, 1.5))
+
+    handles = []
+    for k, v in sorted(bcc.items(), key=lambda x: x[0]):
+        handles.append(patches.Patch(color=v, label=k))
+
+    plt.legend(handles=handles, ncol=4,
+               loc='center',
+               title='BAPS clusters')
+    plt.yticks([])
+    plt.xticks([])
+    sns.despine(left=True,
+                bottom=True)
+
+    plt.savefig(bfile,
+                dpi=options.dpi)
+
+    plt.clf()
+
