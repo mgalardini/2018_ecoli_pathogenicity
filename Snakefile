@@ -71,6 +71,7 @@ parsnp_tree = pj(parsnp_tree_dir, 'parsnp.tree')
 polished_parsnp_tree = pj(parsnp_tree_dir, 'tree.nwk')
 parsnp_xmfa = pj(parsnp_tree_dir, 'parsnp.xmfa')
 parsnp_alignment = pj(parsnp_tree_dir, 'parsnp.fasta')
+baps = pj(out, 'baps.tsv')
 gubbins_tree = pj(gubbins_tree_dir, 'gubbins.final_tree.tre')
 polished_gubbins_tree = pj(gubbins_tree_dir, 'tree.nwk')
 gubbins_prefix = pj(gubbins_tree_dir, 'gubbins')
@@ -219,6 +220,13 @@ rule:
   threads: 40
   shell:
     'run_gubbins.py --verbose --threads {threads} {input} --prefix {params}'
+
+rule structure:
+  input: parsnp_alignment
+  output: baps
+  threads: 20
+  shell:
+    'src/baps.R {input} {output} --cores {threads}'
 
 rule make_gubbins_tree:
   input: gubbins_tree
