@@ -32,7 +32,5 @@ hb.results <- hierBAPS(snp.matrix,
 # save clusters
 write.csv(hb.results$partition.df,
 	  file = args$output, 
-	  col.names = TRUE,
 	  row.names = FALSE,
-	  sep = "\t",
 	  quote = FALSE)
