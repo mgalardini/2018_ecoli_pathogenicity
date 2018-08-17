@@ -233,7 +233,7 @@ rule structure:
   input: baps
   output: baps_clusters
   shell:
-    '''sed -e 's/,/\t/g' -e 's/.fasta//g' -e 's/.ref//g' {input} > {output}'''
+    '''sed -e 's/,/\t/g' -e 's/.fasta//g' -e 's/.ref//g' {input} | tail -n+2 | awk '{{print $1"\t"$2}}' > {output}'''
 
 rule make_gubbins_tree:
   input: gubbins_tree
@@ -364,7 +364,8 @@ rule:
     phenotype=phenotypes,
     kmers=kmers,
     dist=mash_distances,
-    sim=gubbins_similarities
+    sim=gubbins_similarities,
+    baps=baps_clusters
   output:
     associations=associations_cont_lmm_kmer,
     patterns=patterns_cont_lmm_kmer,
@@ -374,7 +375,7 @@ rule:
   params:
     dimensions=3
   shell:
-    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
+    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} --lineage-clusters {input.baps} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
 
 rule associate_kmers:
   input:
@@ -385,7 +386,8 @@ rule:
     phenotype=phenotypes,
     rtab=roary,
     dist=mash_distances,
-    sim=gubbins_similarities
+    sim=gubbins_similarities,
+    baps=baps_clusters
   output:
     associations=associations_cont_lmm_rtab,
     patterns=patterns_cont_lmm_rtab,
@@ -395,7 +397,7 @@ rule:
   params:
     dimensions=3
   shell:
-    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --pres {input.rtab} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
+    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --pres {input.rtab} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} --lineage-clusters {input.baps} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
 
 rule associate_pangenome:
   input:
