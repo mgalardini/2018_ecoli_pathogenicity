@@ -12,6 +12,7 @@ templates_dir = config.get('templates', 'templates')
 # input files
 k12_genome = pj(data, 'genome.faa')
 phenotypes = pj(phenotypes_dir, 'phenotypes.tsv')
+og_names = pj(data, 'hpi.tsv')
 input_file = pj(data, 'inputs.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
@@ -603,12 +604,13 @@ rule:
 
 rule:
   input:
-    unirefnames,
-    sampled_ogs
+    f1=unirefnames,
+    f2=sampled_ogs,
+    f3=og_names
   output:
     unified_annotations
   shell:
-    'src/unify_annotations {input} > {output}'
+    'src/unify_annotations {input.f1} {input.f2} --names {input.f3} > {output}'
 
 rule annotate_hits:
   input:

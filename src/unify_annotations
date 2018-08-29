@@ -12,6 +12,10 @@ def get_options():
     parser.add_argument('fasta',
                         help='Representative protein for each OG fasta file')
 
+    parser.add_argument('--names',
+                        default=None,
+                        help='Literature-derived names for OGs')
+
     return parser.parse_args()
 
 
@@ -22,6 +26,11 @@ if __name__ == "__main__":
     import numpy as np
     import pandas as pd
     from Bio import SeqIO
+
+    names = {}
+    if options.names is not None:
+        names = {x.rstrip().split()[0]: x.rstrip().split()[1]
+                 for x in open(options.names)}
 
     m = pd.read_table(options.uniprot,
                       index_col=0)
@@ -34,8 +43,10 @@ if __name__ == "__main__":
     m = m[['names',
            'uniprot',
            'representative_protein_length']]
-    consensus_name = [x.split(',')[0] if str(x) != 'nan' else y
-                      for y, x in m['names'].iteritems()]
+    m['literature_name'] = [names.get(x, '')
+                            for x in m.index]
+    consensus_name = [y if y != '' else x.split(',')[0] if str(x) != 'nan' else 'nan'
+                      for y, x in m[['names', 'literature_name']].values]
     consensus_name = [x.split(',')[0] if str(x) != 'nan' else y
                       for x, y in zip(consensus_name, m.index)]
     m['preferred_og_name'] = consensus_name
@@ -50,7 +61,7 @@ if __name__ == "__main__":
     additional = []
     for k, v in seqs.items():
         if k not in m['query'].unique():
-            additional.append((k, k, np.nan, np.nan, v))
+            additional.append((names.get(k, k), k, np.nan, np.nan, v))
     if len(additional) > 0:
         additional = pd.DataFrame(additional,
                                   columns=['preferred_og_name', 'query',
