@@ -35,6 +35,7 @@ report2_template = pj(templates_dir, 'odds_ratio.ipynb')
 report3_template = pj(templates_dir, 'simulations.ipynb')
 report4_template = pj(templates_dir, 'virulence_genes.ipynb')
 report5_template = pj(templates_dir, 'chemical.ipynb')
+report6_template = pj(templates_dir, 'gene_view.ipynb')
 
 # configurable stuff
 # edit at will or change these settings with --config
@@ -57,6 +58,7 @@ kmer_mappings_dir = pj(associations_dir, 'kmer_mappings')
 refseq_dir = pj(out, 'refseq')
 rna_dir = pj(out, 'rna')
 plots_dir = pj(out, 'plots')
+maps_dir = pj(plots_dir, 'maps')
 notebooks_dir = config.get('notebooks', 'notebooks')
 # simulations
 simulated_parsnp_tree_dir = pj(refseq_dir, 'parsnp')
@@ -175,10 +177,13 @@ report4 = pj(notebooks_dir, 'virulence_genes.html')
 # comparison with ecoref phenotypes
 report5_nb = pj(notebooks_dir, 'chemical.ipynb')
 report5 = pj(notebooks_dir, 'chemical.html')
+# gene cassette across all strains
+report6_nb = pj(notebooks_dir, 'gene_view.ipynb')
+report6 = pj(notebooks_dir, 'gene_view.html')
 # all reports
 reports = [report1, report2,
            report3, report4,
-           report5]
+           report5, report6]
 
 rule annotate:
   input: annotations
@@ -892,6 +897,24 @@ rule:
   threads: 40
   shell:
     'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+
+rule:
+  input:
+    rt=report6_template,
+    ht=html_template,
+    f=summary_cont_lmm_kmer,
+    n=unified_annotations,
+    r=roarycsv,
+    a=annotations_dir,
+    h=og_names,
+    o=maps_dir
+  output:
+    report6
+  params:
+    r=report6_nb,
+    s='IAI39'
+  shell:
+    'python3 src/run_notebook.py {input.rt} {params.r} -k kmer_hits=../{input.f} -k names=../{input.n} -k pangenome=../{input.r} -k ref_strain={params.s} -k ref_annotation_dir=../{input.a} -k hpi=../{input.h} -k outdir=../{input.o} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
