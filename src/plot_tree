@@ -126,8 +126,8 @@ if __name__ == "__main__":
                          sns.color_palette('Blues',
                                            max(g.values())+1))}
     
-    bc = pd.read_table(options.structure,
-                       index_col=0)['level 1'].to_dict()
+    bc = {x.rstrip().split()[0]: int(x.rstrip().split()[1])
+          for x in open(options.structure)}
     bcc = {x: y
            for x,y in zip(range(1, max(bc.values())+1),
                           sns.color_palette('Set2',

@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     ogs = None
     if options.groups is not None:
-        ogs = {x.rstrip()
+        ogs = {x.rstrip().split()[0]
                for x in open(options.groups)}
 
     d = {}

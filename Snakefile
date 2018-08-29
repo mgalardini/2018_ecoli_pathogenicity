@@ -42,6 +42,7 @@ power_ogs = 'pks2,group_2650'
 simulated_power_ogs = 'group_7955,fabG'
 trimmomatic_dir = config.get('trimmomatic_dir',
                              'software/trimmomatic-0.36-5/share/trimmomatic')
+min_kmer_size = 20
 
 # output directories
 out = config.get('out', 'out')
@@ -463,7 +464,7 @@ rule:
     sclk=summary_cont_lmm_kmer,
     slclk=summary_lineage_cont_lmm_kmer
   params:
-    minsize=20
+    minsize=min_kmer_size
   shell:
     '''
     python src/summarise_annotations.py {input.aclk} --min-size {params} > {output.sclk}
@@ -521,16 +522,30 @@ rule:
     roarycsv
   shell:
     'src/summary2genes {input.summary} {params} > {output}'
+    
+rule:
+  input:
+    fclk=filtered_cont_lmm_kmer,
+    genome=pj(genomes_dir, '{strain}.fasta'),
+    gff=pj(annotations_dir, '{strain}', '{strain}.gff'),
+    roary=roary
+  params:
+    roarycsv
+  output:
+    pj(kmer_mappings_dir, '{strain}.tsv')
+  shell:
+    'mkdir -p tmp_map_back_{wildcards.strain} && src/map_back {input.fclk} {input.genome} --bwa-algorithm fastmap --print-details --tmp-prefix tmp_map_back_{wildcards.strain} --gff {input.gff} --roary {params} > {output} && rm -rf tmp_map_back_{wildcards.strain}'
 
 rule:
   input:
-    rtab=filtered_cont_lmm_rtab,
-    kmer=summary_cont_lmm_kmer
+    kmer_mappings_lmm
+  params:
+    kdir=kmer_mappings_dir,
+    minsize=min_kmer_size
   output:
     associated_ogs
   shell:
-    ''
-    '(tail -n+2 {input.rtab} | awk \'{{print $1}}\' && tail -n+2 {input.kmer} | awk \'{{print $1}}\') | sort | uniq > {output}'
+    '''awk '{{if (length($2) >= {params.minsize} && $8 != "") print $8}}' {params.kdir}/*.tsv | sort | uniq -c | sort -n | awk '{{print $2"\\t"$1}}' > {output}'''
 
 rule:
   input:
@@ -543,7 +558,6 @@ rule:
     sampled_ogs
   shell:
     'src/sample_pangenome {params.pangenome} {params.annotations} --focus-strain IAI39 --focus-strain IAI01 --groups {input.ogs} > {output}'
-    
 
 rule downstream:
   input:
@@ -553,6 +567,7 @@ rule downstream:
     kmer_gene_count_lmm,
     kmer_lineage_gene_count_lmm,
     rtab_gene_count_lmm,
+    kmer_mappings_lmm,
     sampled_ogs
 
 rule:
@@ -588,40 +603,17 @@ rule:
 
 rule:
   input:
-    sampled_ogs
-  output:
-    eggnog
-  shell:
-    'echo "OFFLINE ANNOTATION: please submit {input} to http://eggnogdb.embl.de/#/app/emapper and download the output to {output}"'
-
-rule:
-  input:
     unirefnames,
-    sampled_ogs,
-    eggnog
+    sampled_ogs
   output:
     unified_annotations
   shell:
     'src/unify_annotations {input} > {output}'
 
-rule:
-  input:
-    fclk=filtered_cont_lmm_kmer,
-    genome=pj(genomes_dir, '{strain}.fasta'),
-    gff=pj(annotations_dir, '{strain}', '{strain}.gff'),
-    roary=roary
-  params:
-    roarycsv
-  output:
-    pj(kmer_mappings_dir, '{strain}.tsv')
-  shell:
-    'mkdir -p tmp_map_back_{wildcards.strain} && src/map_back {input.fclk} {input.genome} --bwa-algorithm fastmap --print-details --tmp-prefix tmp_map_back_{wildcards.strain} --gff {input.gff} --roary {params} > {output} && rm -rf tmp_map_back_{wildcards.strain}'
-
 rule annotate_hits:
   input:
     gene_distances,
-    unified_annotations,
-    kmer_mappings_lmm
+    unified_annotations
 
 rule:
   input:
@@ -839,7 +831,7 @@ rule:
     rt=report2_template,
     ht=html_template,
     odds=odds_ratio,
-    f=filtered_cont_lmm_rtab
+    f=associated_ogs
   output:
     report2
   params:
@@ -895,7 +887,7 @@ rule:
     r=report5_nb,
     s=ecoref_strains,
     p1=ecoref_phenotypes,
-  threads: 20
+  threads: 40
   shell:
     'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
