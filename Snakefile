@@ -25,6 +25,8 @@ rna_reads = [(x.rstrip().split('\t')[0],
               x.rstrip().split('\t')[2])
              for x in open(rna_samples_file)
              if x.rstrip().split('\t')[0] != 'strain']
+survival1 = liste_souris_NILS46.csv
+survival2 = liste_souris_NILS9.csv
 html_template = pj(templates_dir, 'html.tpl')
 # urls for online data
 ecoref_phenotypes = 'https://evocellnet.github.io/ecoref/data/phenotypic_data.tsv'
@@ -36,6 +38,7 @@ report3_template = pj(templates_dir, 'simulations.ipynb')
 report4_template = pj(templates_dir, 'virulence_genes.ipynb')
 report5_template = pj(templates_dir, 'chemical.ipynb')
 report6_template = pj(templates_dir, 'gene_view.ipynb')
+report7_template = pj(templates_dir, 'survival.ipynb')
 
 # configurable stuff
 # edit at will or change these settings with --config
@@ -180,10 +183,14 @@ report5 = pj(notebooks_dir, 'chemical.html')
 # gene cassette across all strains
 report6_nb = pj(notebooks_dir, 'gene_view.ipynb')
 report6 = pj(notebooks_dir, 'gene_view.html')
+# survival curve
+report7_nb = pj(notebooks_dir, 'survival.ipynb')
+report7 = pj(notebooks_dir, 'survival.html')
 # all reports
 reports = [report1, report2,
            report3, report4,
-           report5, report6]
+           report5, report6,
+           report7]
 
 rule annotate:
   input: annotations
@@ -917,6 +924,19 @@ rule:
     s='IAI39'
   shell:
     'python3 src/run_notebook.py {input.rt} {params.r} -k kmer_hits=../{input.f} -k names=../{input.n} -k pangenome=../{input.r} -k ref_strain={params.s} -k ref_annotation_dir=../{input.a} -k hpi=../{input.h} -k outdir=../{input.o} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+
+rule:
+  input:
+    rt=report7_template,
+    ht=html_template,
+    s1=survival1,
+    s2=survival2
+  output:
+    report7
+  params:
+    report7_nb,
+  shell:
+    'python3 src/run_notebook.py {input.rt} {params} -k nils46=../{input.s1} -k nils9=../{input.s2} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
