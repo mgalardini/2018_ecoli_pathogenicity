@@ -838,13 +838,15 @@ rule:
     rt=report2_template,
     ht=html_template,
     odds=odds_ratio,
-    f=associated_ogs
+    f=associated_ogs,
+    n=unified_annotations,
+    s=summary_cont_lmm_kmer
   output:
     report2
   params:
     report2_nb
   shell:
-    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} -k names=../{input.n} -k kmer_hits=../{input.s} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:

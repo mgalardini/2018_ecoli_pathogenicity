@@ -45,10 +45,10 @@ if __name__ == "__main__":
            'representative_protein_length']]
     m['literature_name'] = [names.get(x, '')
                             for x in m.index]
-    consensus_name = [y if y != '' else x.split(',')[0] if str(x) != 'nan' else 'nan'
-                      for y, x in m[['names', 'literature_name']].values]
+    consensus_name1 = [y if y != '' else x.split(',')[0] if str(x) != 'nan' else 'nan'
+                      for x, y in m[['names', 'literature_name']].values]
     consensus_name = [x.split(',')[0] if str(x) != 'nan' else y
-                      for x, y in zip(consensus_name, m.index)]
+                      for x, y in zip(consensus_name1, m.index)]
     m['preferred_og_name'] = consensus_name
     m = m.reset_index()
     m = m[['preferred_og_name', 'query',
