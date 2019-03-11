@@ -25,8 +25,8 @@ rna_reads = [(x.rstrip().split('\t')[0],
               x.rstrip().split('\t')[2])
              for x in open(rna_samples_file)
              if x.rstrip().split('\t')[0] != 'strain']
-survival1 = liste_souris_NILS46.csv
-survival2 = liste_souris_NILS9.csv
+survival1 = pj(data, 'liste_souris_NILS46.csv')
+survival2 = pj(data, 'liste_souris_NILS9.csv')
 html_template = pj(templates_dir, 'html.tpl')
 # urls for online data
 ecoref_phenotypes = 'https://evocellnet.github.io/ecoref/data/phenotypic_data.tsv'
@@ -936,7 +936,7 @@ rule:
   params:
     report7_nb,
   shell:
-    'python3 src/run_notebook.py {input.rt} {params} -k nils46=../{input.s1} -k nils9=../{input.s2} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k nils46=../{input.s1} -k nils9=../{input.s2} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
