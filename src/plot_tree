@@ -19,6 +19,8 @@ def get_options():
                         help='Genes file')
     parser.add_argument('structure', action='store',
                         help='BAPS clusters file')
+    parser.add_argument('phylogroups', action='store',
+                        help='phylogrpups file')
     parser.add_argument('out', action='store',
                         help='Output directory')
 
@@ -32,6 +34,9 @@ def get_options():
     mode.add_argument('--only-phenotype-baps', action='store_true',
                       default=False,
                       help='Only show the phenotpyes and baps clusters')
+    mode.add_argument('--only-phenotype-phylogroups', action='store_true',
+                      default=False,
+                      help='Only show the phenotpyes and phylogroups')
     parser.add_argument('--width', action='store',
                         type=float,
                         default=10,
@@ -89,6 +94,9 @@ if __name__ == "__main__":
     bfile = os.path.join(options.out,
                          '%sbaps.%s' % (options.prefix,
                                          options.extension))
+    phfile = os.path.join(options.out,
+                          '%sphylogroups.%s' % (options.prefix,
+                                                options.extension))
     #
     
     # phenotypes
@@ -132,7 +140,15 @@ if __name__ == "__main__":
            for x,y in zip(range(1, max(bc.values())+1),
                           sns.color_palette('Set2',
                                             max(bc.values())))}
-                            
+    
+    ph = {x.rstrip().split()[0]: x.rstrip().split('\t')[1]
+          for x in open(options.phylogroups)
+          if x.split()[0] != 'strain'}
+    phc = {x: y
+           for x,y in zip(set(ph.values()),
+                          sns.color_palette('Set2',
+                                            len(set(ph.values()))))}
+
     # tree
     tree = get_tree(options.tree)
 
@@ -143,7 +159,7 @@ if __name__ == "__main__":
             n.set_style(inner)
             continue
 
-        if not options.only_phenotype_baps:
+        if not options.only_phenotype_baps and not options.only_phenotype_phylogroups:
             i = 0
         else:
             i = 1
@@ -152,7 +168,7 @@ if __name__ == "__main__":
                      colors.rgb2hex(color[pcont.get(n.name, 0)]))
         n.add_face(r, i,
                    position="aligned")
-        if not options.only_phenotype and not options.only_phenotype_baps:
+        if not options.only_phenotype and not options.only_phenotype_baps and not options.only_phenotype_phylogroups:
             r = RectFace(30, 15,
                          colors.rgb2hex(kc[k.get(n.name, 0)]),
                          colors.rgb2hex(kc[k.get(n.name, 0)]))
@@ -172,6 +188,12 @@ if __name__ == "__main__":
             r = RectFace(30, 15,
                          colors.rgb2hex(bcc[bc.get(n.name, 0)]),
                          colors.rgb2hex(bcc[bc.get(n.name, 0)]))
+            n.add_face(r, 0,
+                       position="aligned")
+        elif options.only_phenotype_phylogroups:
+            r = RectFace(30, 15,
+                         colors.rgb2hex(phc[ph.get(n.name, 'A')]),
+                         colors.rgb2hex(phc[ph.get(n.name, 'A')]))
             n.add_face(r, 0,
                        position="aligned")
 
@@ -284,6 +306,25 @@ if __name__ == "__main__":
                 bottom=True)
 
     plt.savefig(bfile,
+                dpi=options.dpi)
+
+    plt.clf()
+
+    plt.figure(figsize=(4, 1.5))
+
+    handles = []
+    for k, v in sorted(phc.items(), key=lambda x: x[0]):
+        handles.append(patches.Patch(color=v, label=k))
+
+    plt.legend(handles=handles, ncol=4,
+               loc='center',
+               title='Phylogroups')
+    plt.yticks([])
+    plt.xticks([])
+    sns.despine(left=True,
+                bottom=True)
+
+    plt.savefig(phfile,
                 dpi=options.dpi)
 
     plt.clf()

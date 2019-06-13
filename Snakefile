@@ -13,6 +13,7 @@ templates_dir = config.get('templates', 'templates')
 k12_genome = pj(data, 'genome.faa')
 phenotypes = pj(phenotypes_dir, 'phenotypes.tsv')
 og_names = pj(data, 'hpi.tsv')
+phylogroups = pj(data, 'phylogroups.tsv')
 input_file = pj(data, 'inputs.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
@@ -820,7 +821,8 @@ rule:
     kmer_count_lmm,
     kmer_gene_count_lmm,
     rtab_gene_count_lmm,
-    baps_clusters
+    baps_clusters,
+    phylogroups
   output:
     viz_tree
   shell:
