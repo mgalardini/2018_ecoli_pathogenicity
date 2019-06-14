@@ -68,15 +68,16 @@ if __name__ == "__main__":
     genes = options.groups.split(',')
     strains = list(roary.columns)
     for size in list(range(20, roary.shape[1], 50)) + [roary.shape[1]]:
-        pg = roary.copy(deep=True)
-        if size != roary.shape[1]:
-            random.shuffle(strains)
-            pg = pg[strains[:size]]
-        threshold = get_threshold(pg, options.alpha)
-        pg = pg.loc[genes]
-        pstrains = pg.columns
         for i in range(100):
+            pg = roary.copy(deep=True)
+            if size != roary.shape[1]:
+                random.shuffle(strains)
+                pg = pg[strains[:size]]
+            threshold = get_threshold(pg, options.alpha)
+            pg = pg.loc[genes]
+            pstrains = pg.columns
             for OR in np.logspace(0.1, 4, 10, base=np.e):
+                sys.stderr.write('size: %d, round: %d, OR: %.2f\n' % (size, i, OR))
                 for k, v in pg.T.iteritems():
                     maf = min((v[v == 1].shape[0]/v.shape[0],
                                v[v == 0].shape[0]/v.shape[0]))
