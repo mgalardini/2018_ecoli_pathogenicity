@@ -822,7 +822,9 @@ rule:
     kmer_gene_count_lmm,
     rtab_gene_count_lmm,
     baps_clusters,
-    phylogroups
+    phylogroups,
+    roary,
+    virulence
   output:
     viz_tree
   shell:

@@ -1,0 +1,158 @@
+#!/usr/bin/env python
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Generate annotated tree"
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('tree', action='store',
+                        help='Tree in Newick format')
+    parser.add_argument('phenotype', action='store',
+                        help='Phenotype file')
+    parser.add_argument('phylogroups', action='store',
+                        help='phylogrpups file')
+    parser.add_argument('rtab', action='store',
+                        help='pangenome file')
+    parser.add_argument('gene', action='store',
+                        help='genes file')
+    parser.add_argument('out', action='store',
+                        help='Output directory')
+
+    parser.add_argument('--labels', action='store_true',
+                        default=False,
+                        help='Show strain labels')
+    parser.add_argument('--width', action='store',
+                        type=float,
+                        default=10,
+                        help='Figure height [Default: 10 inches]')
+    parser.add_argument('--dpi', action='store',
+                        type=int,
+                        default=300,
+                        help='DPI [Default: 300]')
+    parser.add_argument('--extension', action='store',
+                        default='png',
+                        help='Pictures extension [Default: png]')
+    parser.add_argument('--prefix', action='store',
+                        default='',
+                        help='Pictures prefix [Default: ""]')
+
+    return parser.parse_args()
+
+
+def get_tree(infile):
+    tree = Tree(infile)
+
+    # tree.set_outgroup(tree.get_midpoint_outgroup())
+
+    return tree
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import os
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as colors
+    import matplotlib.patches as patches
+    from ete3 import TreeStyle, NodeStyle, Tree, RectFace
+
+    # output files
+    tfile = os.path.join(options.out,
+                         '%stree.%s' % (options.prefix,
+                                        options.extension))
+    #
+
+    # phenotypes
+    p = pd.read_table(options.phenotype, index_col=0)
+    pbinary = p['phenotype'].to_dict()
+    pcont = p['killed'].to_dict()
+
+    color = {x: y
+             for x,y in zip(range(max(pcont.values())+1),
+                            sns.color_palette('Reds',
+                                              max(pcont.values())+1))}
+
+    ph = {x.rstrip().split()[0]: x.rstrip().split('\t')[1]
+          for x in open(options.phylogroups)
+          if x.split()[0] != 'strain'}
+    phc = {x: y
+           for x,y in zip(set(ph.values()),
+                          sns.color_palette('Set2',
+                                            len(set(ph.values()))))}
+
+    genes = pd.read_table(options.gene)
+    gnames = genes.set_index('og')['gene'].to_dict()
+    rtab = pd.read_table(options.rtab, index_col=0)
+    rtab = rtab.loc[genes['og']].drop_duplicates()
+    rtab = rtab.sort_index()
+    rtab.index = [gnames[x] for x in rtab.index]
+    res = []
+    for gene in set(rtab.index):
+        if len(rtab.loc[gene].shape) == 1:
+            res.append(rtab.loc[gene].values)
+        else:
+            res.append(rtab.loc[gene].sum().values)
+    rtab = pd.DataFrame(res,
+                        index=set(rtab.index),
+                        columns=rtab.columns)
+    rtab = rtab.loc[rtab.T.sum().sort_values().index[::-1]]
+
+    # tree
+    tree = get_tree(options.tree)
+
+    inner = NodeStyle()
+    inner['size'] = 0
+    for n in tree.traverse():
+        if not n.is_leaf():
+            n.set_style(inner)
+            continue
+
+        i = 1
+        r = RectFace(30, 15,
+                     colors.rgb2hex(color[pcont.get(n.name, 0)]),
+                     colors.rgb2hex(color[pcont.get(n.name, 0)]))
+        n.add_face(r, i,
+                   position="aligned")
+        r = RectFace(30, 15,
+                     colors.rgb2hex(phc[ph.get(n.name, 'A')]),
+                     colors.rgb2hex(phc[ph.get(n.name, 'A')]))
+        n.add_face(r, 0,
+                   position="aligned")
+        for j, gene in enumerate(rtab.index):
+            if rtab.loc[gene, n.name] == 0:
+                r = RectFace(30, 15,
+                             '#d8dcd6',
+                             '#d8dcd6')
+                n.add_face(r, j+2,
+                           position="aligned")
+            else:
+                r = RectFace(30, 15,
+                             '#00035b',
+                             '#00035b')
+                n.add_face(r, j+2,
+                           position="aligned")
+
+
+    circular_style = TreeStyle()
+    circular_style.mode = "c"
+    circular_style.scale = None
+    circular_style.arc_start = 90
+    circular_style.arc_span = 180
+    if options.labels:
+        circular_style.show_leaf_name = True
+    else:
+        circular_style.show_leaf_name = False
+    circular_style.draw_guiding_lines = True
+    tree.render(tfile,
+                w=options.width,
+                units="in",
+                tree_style=circular_style,
+                dpi=options.dpi)
+
+    for i in rtab.index:
+        print(i)

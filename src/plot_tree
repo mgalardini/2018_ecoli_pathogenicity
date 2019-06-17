@@ -98,7 +98,7 @@ if __name__ == "__main__":
                           '%sphylogroups.%s' % (options.prefix,
                                                 options.extension))
     #
-    
+
     # phenotypes
     p = pd.read_table(options.phenotype, index_col=0)
     pbinary = p['phenotype'].to_dict()
@@ -133,14 +133,14 @@ if __name__ == "__main__":
           for x,y in zip(range(max(g.values())+1),
                          sns.color_palette('Blues',
                                            max(g.values())+1))}
-    
+
     bc = {x.rstrip().split()[0]: int(x.rstrip().split()[1])
           for x in open(options.structure)}
     bcc = {x: y
            for x,y in zip(range(1, max(bc.values())+1),
                           sns.color_palette('Set2',
                                             max(bc.values())))}
-    
+
     ph = {x.rstrip().split()[0]: x.rstrip().split('\t')[1]
           for x in open(options.phylogroups)
           if x.split()[0] != 'strain'}
@@ -214,7 +214,7 @@ if __name__ == "__main__":
                 dpi=options.dpi)
 
     plt.clf()
-    
+
     plt.figure(figsize=(3.5, 0.5))
 
     mmax = max(pcont.values())
@@ -227,13 +227,13 @@ if __name__ == "__main__":
     plt.xticks((0, 50, 100),
                [str(x) for x in (0, mmax//2, mmax)])
     plt.yticks([])
-    plt.title('Infected individuals')
-    
+    plt.title('Killed individuals')
+
     plt.savefig(pfile,
                 dpi=options.dpi)
 
     plt.clf()
-    
+
     plt.figure(figsize=(3.5, 0.5))
 
     mmax = max(k.values())
@@ -247,7 +247,7 @@ if __name__ == "__main__":
                [str(x) for x in (0, mmax//2, mmax)])
     plt.yticks([])
     plt.title('Associated kmers')
-    
+
     plt.savefig(kfile,
                 dpi=options.dpi)
 
@@ -266,7 +266,7 @@ if __name__ == "__main__":
                [str(x) for x in (0, mmax//2, mmax)])
     plt.yticks([])
     plt.title('Associated genes (kmers)')
-    
+
     plt.savefig(kgfile,
                 dpi=options.dpi)
 
@@ -285,7 +285,7 @@ if __name__ == "__main__":
                [str(x) for x in (0, mmax//2, mmax)])
     plt.yticks([])
     plt.title('Associated genes (pangenome)')
-    
+
     plt.savefig(gfile,
                 dpi=options.dpi)
 
