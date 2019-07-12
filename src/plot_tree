@@ -144,10 +144,18 @@ if __name__ == "__main__":
     ph = {x.rstrip().split()[0]: x.rstrip().split('\t')[1]
           for x in open(options.phylogroups)
           if x.split()[0] != 'strain'}
-    phc = {x: y
-           for x,y in zip(set(ph.values()),
-                          sns.color_palette('Set2',
-                                            len(set(ph.values()))))}
+    phc = {'A': '#7995cb',
+           'B1': '#5fad3e',
+           'B2': '#b33740',
+           'C': '#8a58a4',
+           'D': '#f8f457',
+           'E': '#935c29',
+           'F': '#f8b515',
+           'clade I': '#65ae9a'}
+    #phc = {x: y
+    #       for x,y in zip(set(ph.values()),
+    #                      sns.color_palette('Set2',
+    #                                        len(set(ph.values()))))}
 
     # tree
     tree = get_tree(options.tree)
