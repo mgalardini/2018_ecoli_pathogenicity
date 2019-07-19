@@ -28,6 +28,7 @@ rna_reads = [(x.rstrip().split('\t')[0],
              if x.rstrip().split('\t')[0] != 'strain']
 survival1 = pj(data, 'liste_souris_NILS46.csv')
 survival2 = pj(data, 'liste_souris_NILS9.csv')
+ybactin = pj(data, 'yersiniabactin.csv')
 html_template = pj(templates_dir, 'html.tpl')
 # urls for online data
 ecoref_phenotypes = 'https://evocellnet.github.io/ecoref/data/phenotypic_data.tsv'
@@ -187,11 +188,14 @@ report6 = pj(notebooks_dir, 'gene_view.html')
 # survival curve
 report7_nb = pj(notebooks_dir, 'survival.ipynb')
 report7 = pj(notebooks_dir, 'survival.html')
+# yersiniabactin
+report8_nb = pj(notebooks_dir, 'yersiniabactin.ipynb')
+report8 = pj(notebooks_dir, 'yersiniabactin.html')
 # all reports
 reports = [report1, report2,
            report3, report4,
            report5, report6,
-           report7]
+           report7, report8]
 
 rule annotate:
   input: annotations
@@ -941,6 +945,18 @@ rule:
     report7_nb,
   shell:
     'python3 src/run_notebook.py {input.rt} {params} -k nils46=../{input.s1} -k nils9=../{input.s2} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+
+rule:
+  input:
+    rt=report8_template,
+    ht=html_template,
+    y=ybactin
+  output:
+    report8
+  params:
+    report8_nb,
+  shell:
+    'python3 src/run_notebook.py {input.rt} {params} -k data=../{input.y} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule plots:
   input:
