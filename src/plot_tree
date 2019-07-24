@@ -17,8 +17,6 @@ def get_options():
                         help='Genes from kmers file')
     parser.add_argument('genes', action='store',
                         help='Genes file')
-    parser.add_argument('structure', action='store',
-                        help='BAPS clusters file')
     parser.add_argument('phylogroups', action='store',
                         help='phylogrpups file')
     parser.add_argument('out', action='store',
@@ -31,9 +29,6 @@ def get_options():
     mode.add_argument('--only-phenotype', action='store_true',
                       default=False,
                       help='Only show the phenotpyes')
-    mode.add_argument('--only-phenotype-baps', action='store_true',
-                      default=False,
-                      help='Only show the phenotpyes and baps clusters')
     mode.add_argument('--only-phenotype-phylogroups', action='store_true',
                       default=False,
                       help='Only show the phenotpyes and phylogroups')
@@ -91,9 +86,6 @@ if __name__ == "__main__":
     gfile = os.path.join(options.out,
                          '%sgenes.%s' % (options.prefix,
                                          options.extension))
-    bfile = os.path.join(options.out,
-                         '%sbaps.%s' % (options.prefix,
-                                         options.extension))
     phfile = os.path.join(options.out,
                           '%sphylogroups.%s' % (options.prefix,
                                                 options.extension))
@@ -134,13 +126,6 @@ if __name__ == "__main__":
                          sns.color_palette('Blues',
                                            max(g.values())+1))}
 
-    bc = {x.rstrip().split()[0]: int(x.rstrip().split()[1])
-          for x in open(options.structure)}
-    bcc = {x: y
-           for x,y in zip(range(1, max(bc.values())+1),
-                          sns.color_palette('Set2',
-                                            max(bc.values())))}
-
     ph = {x.rstrip().split()[0]: x.rstrip().split('\t')[1]
           for x in open(options.phylogroups)
           if x.split()[0] != 'strain'}
@@ -167,7 +152,7 @@ if __name__ == "__main__":
             n.set_style(inner)
             continue
 
-        if not options.only_phenotype_baps and not options.only_phenotype_phylogroups:
+        if not options.only_phenotype_phylogroups:
             i = 0
         else:
             i = 1
@@ -176,7 +161,7 @@ if __name__ == "__main__":
                      colors.rgb2hex(color[pcont.get(n.name, 0)]))
         n.add_face(r, i,
                    position="aligned")
-        if not options.only_phenotype and not options.only_phenotype_baps and not options.only_phenotype_phylogroups:
+        if not options.only_phenotype and not options.only_phenotype_phylogroups:
             r = RectFace(30, 15,
                          colors.rgb2hex(kc[k.get(n.name, 0)]),
                          colors.rgb2hex(kc[k.get(n.name, 0)]))
@@ -191,12 +176,6 @@ if __name__ == "__main__":
                          colors.rgb2hex(gc[g.get(n.name, 0)]),
                          colors.rgb2hex(gc[g.get(n.name, 0)]))
             n.add_face(r, 3,
-                       position="aligned")
-        elif options.only_phenotype_baps:
-            r = RectFace(30, 15,
-                         colors.rgb2hex(bcc[bc.get(n.name, 0)]),
-                         colors.rgb2hex(bcc[bc.get(n.name, 0)]))
-            n.add_face(r, 0,
                        position="aligned")
         elif options.only_phenotype_phylogroups:
             r = RectFace(30, 15,
@@ -295,25 +274,6 @@ if __name__ == "__main__":
     plt.title('Associated genes (pangenome)')
 
     plt.savefig(gfile,
-                dpi=options.dpi)
-
-    plt.clf()
-
-    plt.figure(figsize=(4, 1.5))
-
-    handles = []
-    for k, v in sorted(bcc.items(), key=lambda x: x[0]):
-        handles.append(patches.Patch(color=v, label=k))
-
-    plt.legend(handles=handles, ncol=4,
-               loc='center',
-               title='BAPS clusters')
-    plt.yticks([])
-    plt.xticks([])
-    sns.despine(left=True,
-                bottom=True)
-
-    plt.savefig(bfile,
                 dpi=options.dpi)
 
     plt.clf()

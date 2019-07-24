@@ -306,7 +306,7 @@ rule:
     kmers=kmers,
     dist=mash_distances,
     sim=gubbins_similarities,
-    baps=baps_clusters
+    baps=phylogroups
   output:
     associations=associations_cont_lmm_kmer,
     patterns=patterns_cont_lmm_kmer,
@@ -328,7 +328,7 @@ rule:
     rtab=roary,
     dist=mash_distances,
     sim=gubbins_similarities,
-    baps=baps_clusters
+    baps=phylogroups
   output:
     associations=associations_cont_lmm_rtab,
     patterns=patterns_cont_lmm_rtab,
@@ -746,8 +746,7 @@ rule:
     phenotypes,
     kmer_count_lmm,
     kmer_gene_count_lmm,
-    rtab_gene_count_lmm,
-    baps_clusters,
+    rtab_gene_count_lmm, 
     phylogroups,
     roary,
     virulence
