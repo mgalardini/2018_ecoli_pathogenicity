@@ -12,6 +12,8 @@ def get_options():
 
     parser.add_argument('annotations',
                         help='Annotated k-mer file from annotate_hits.py')
+    parser.add_argument('pangenome',
+                        help='Roary 0/1 file')
 
     parser.add_argument('--min-size',
                         default=30,
@@ -27,7 +29,7 @@ def get_options():
     return parser.parse_args()
 
 
-def update_summary(summary, gene, pval, af, beta, specific):
+def update_summary(summary, gene, pval, af, beta, length, gaf, specific):
     if summary[gene] != {}:
         summary[gene]['count'] += 1
         if specific:
@@ -36,6 +38,8 @@ def update_summary(summary, gene, pval, af, beta, specific):
         summary[gene]['beta'] += beta
         if log10p > summary[gene]['maxp']:
             summary[gene]['maxp'] = log10p
+        summary[gene]['length'] += length
+        summary[gene]['gaf'] = gaf
     else:
         summary[gene]['count'] = 1
         if specific:
@@ -45,6 +49,8 @@ def update_summary(summary, gene, pval, af, beta, specific):
         summary[gene]['af'] = af
         summary[gene]['beta'] = beta
         summary[gene]['maxp'] = log10p
+        summary[gene]['length'] = length
+        summary[gene]['gaf'] = gaf
 
 
 if __name__ == "__main__":
@@ -52,8 +58,12 @@ if __name__ == "__main__":
 
     import sys
     import collections
+    import pandas as pd
     from math import log10
 
+    p = pd.read_csv(options.pangenome, sep='\t', index_col=0)
+    psum = p.T.sum() / p.shape[1]
+    
     summary = collections.defaultdict(dict)
     with open(options.annotations, 'r') as anot_file:
         for line in anot_file:
@@ -82,6 +92,8 @@ if __name__ == "__main__":
                                        log10p,
                                        af,
                                        beta,
+                                       len(variant),
+                                       psum.loc[inside],
                                        specific)
                     elif options.nearby:
                         if down != "":
@@ -90,6 +102,8 @@ if __name__ == "__main__":
                                            log10p,
                                            af,
                                            beta,
+                                           len(variant),
+                                           psum.loc[down],
                                            specific)
                         if up != "":
                             update_summary(summary,
@@ -97,10 +111,12 @@ if __name__ == "__main__":
                                            log10p,
                                            af,
                                            beta,
+                                           len(variant),
+                                           psum.loc[up],
                                            specific)
 
     # write output
-    print("\t".join(["gene", "hits", "specific_hits", "maxp",
+    print("\t".join(["gene", "hits", "specific_hits", 'length', 'OG_af', "maxp",
                      "avg_af", "avg_maf", "avg_beta"]))
     for gene in summary:
         af = summary[gene]['af']/summary[gene]['count']
@@ -112,6 +128,8 @@ if __name__ == "__main__":
         print("\t".join([gene,
                          str(summary[gene]['count']),
                          str(summary[gene]['specific']),
+                         str(summary[gene]['length']),
+                         str(summary[gene]['gaf']),
                          str(summary[gene]['maxp']),
                          str(af),
                          str(maf),

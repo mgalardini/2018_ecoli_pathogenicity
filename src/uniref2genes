@@ -66,7 +66,12 @@ if __name__ == "__main__":
             sys.stderr.write('Error %d on Uniprot entry %s\n' % (r.status_code, uhit))
             sys.stderr.write('%s\n' % r.url)
             continue
-        r = SwissProt.read(StringIO(r.text))
+        try:
+            r = SwissProt.read(StringIO(r.text))
+        except AssertionError as e:
+            sys.stderr.write('Error %s on parsing Uniprot entry %s\n' % (str(e), uhit))
+            sys.stderr.write('%s\n' % r.url)
+            continue
         for entry in r.gene_name.split(';'):
             if entry.startswith('Name='):
                 name = entry.split('Name=')[1].split()[0]

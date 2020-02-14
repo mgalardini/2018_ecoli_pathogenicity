@@ -17,6 +17,8 @@ def get_options():
                         help='pangenome file')
     parser.add_argument('gene', action='store',
                         help='genes file')
+    parser.add_argument('hpi', action='store',
+                        help='HPI file')
     parser.add_argument('out', action='store',
                         help='Output directory')
 
@@ -77,7 +79,9 @@ if __name__ == "__main__":
                             sns.color_palette('Reds',
                                               max(pcont.values())+1))}
 
-    ph = {x.rstrip().split()[0]: x.rstrip().split('\t')[1]
+    ph = {x.rstrip().split()[0]: (x.rstrip().split('\t')[1]
+          if 'clade' not in  x.rstrip().split('\t')[1]
+          else 'E. clade')
           for x in open(options.phylogroups)
           if x.split()[0] != 'strain'}
     phc = {'A': '#7995cb',
@@ -87,7 +91,10 @@ if __name__ == "__main__":
            'D': '#f8f457',
            'E': '#935c29',
            'F': '#f8b515',
-           'clade I': '#65ae9a'}
+           'G': '#1d26db',
+           'E. clade': '#65ae9a',
+           'E_albertii': '#a3a3a3',
+           'E_fergusonii': '#000000'}
     #phc = {x: y
     #       for x,y in zip(set(ph.values()),
     #                      sns.color_palette('Set2',
@@ -109,6 +116,23 @@ if __name__ == "__main__":
                         index=set(rtab.index),
                         columns=rtab.columns)
     rtab = rtab.loc[rtab.T.sum().sort_values().index[::-1]]
+    
+    hpi = pd.read_table(options.hpi, header=None)
+    hnames = hpi.set_index(0)[1].to_dict()
+    htab = pd.read_table(options.rtab, index_col=0)
+    htab = htab.loc[hpi[0]].drop_duplicates()
+    htab = htab.sort_index()
+    htab.index = [hnames[x] for x in htab.index]
+    res = []
+    for gene in set(htab.index):
+        if len(htab.loc[gene].shape) == 1:
+            res.append(htab.loc[gene].values)
+        else:
+            res.append(htab.loc[gene].sum().values)
+    htab = pd.DataFrame(res,
+                        index=set(htab.index),
+                        columns=htab.columns)
+    htab = htab.loc[htab.T.sum().sort_values().index[::-1]]
 
     # tree
     tree = get_tree(options.tree)
@@ -131,8 +155,8 @@ if __name__ == "__main__":
                      colors.rgb2hex(phc[ph.get(n.name, 'A')]))
         n.add_face(r, 0,
                    position="aligned")
-        for j, gene in enumerate(rtab.index):
-            if rtab.loc[gene, n.name] == 0:
+        for j, gene in enumerate(htab.index):
+            if htab.loc[gene, n.name] == 0:
                 r = RectFace(30, 15,
                              '#d8dcd6',
                              '#d8dcd6')
@@ -140,9 +164,22 @@ if __name__ == "__main__":
                            position="aligned")
             else:
                 r = RectFace(30, 15,
+                             sns.xkcd_rgb['dark sky blue'],
+                             sns.xkcd_rgb['dark sky blue'])
+                n.add_face(r, j+2,
+                           position="aligned")
+        for jj, gene in enumerate(rtab.index):
+            if rtab.loc[gene, n.name] == 0:
+                r = RectFace(30, 15,
+                             '#d8dcd6',
+                             '#d8dcd6')
+                n.add_face(r, j+jj+3,
+                           position="aligned")
+            else:
+                r = RectFace(30, 15,
                              '#00035b',
                              '#00035b')
-                n.add_face(r, j+2,
+                n.add_face(r, j+jj+3,
                            position="aligned")
 
 
@@ -162,5 +199,7 @@ if __name__ == "__main__":
                 tree_style=circular_style,
                 dpi=options.dpi)
 
+    for i in htab.index:
+        print(i)
     for i in rtab.index:
         print(i)

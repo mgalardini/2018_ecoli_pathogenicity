@@ -126,7 +126,9 @@ if __name__ == "__main__":
                          sns.color_palette('Blues',
                                            max(g.values())+1))}
 
-    ph = {x.rstrip().split()[0]: x.rstrip().split('\t')[1]
+    ph = {x.rstrip().split()[0]: (x.rstrip().split('\t')[1]
+          if 'clade' not in  x.rstrip().split('\t')[1]
+          else 'E. clade')
           for x in open(options.phylogroups)
           if x.split()[0] != 'strain'}
     phc = {'A': '#7995cb',
@@ -136,7 +138,10 @@ if __name__ == "__main__":
            'D': '#f8f457',
            'E': '#935c29',
            'F': '#f8b515',
-           'clade I': '#65ae9a'}
+           'G': '#1d26db',
+           'E. clade': '#65ae9a',
+           'E_albertii': '#a3a3a3',
+           'E_fergusonii': '#000000'}
     #phc = {x: y
     #       for x,y in zip(set(ph.values()),
     #                      sns.color_palette('Set2',

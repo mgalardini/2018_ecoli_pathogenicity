@@ -21,6 +21,7 @@ genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
 survival1 = pj(data, 'liste_souris_NILS46.csv')
 survival2 = pj(data, 'liste_souris_NILS9.csv')
 ybactin = pj(data, 'yersiniabactin.tsv')
+virulence_uniprot = pj(data, 'virulence_genes.faa')
 html_template = pj(templates_dir, 'html.tpl')
 # urls for online data
 ecoref_phenotypes = 'https://evocellnet.github.io/ecoref/data/phenotypic_data.tsv'
@@ -47,6 +48,7 @@ out = config.get('out', 'out')
 annotations_dir = pj(out, 'annotations')
 parsnp_tree_dir = pj(out, 'parsnp')
 gubbins_tree_dir = pj(out, 'gubbins')
+unitigs_dir = pj(out, 'unitigs')
 roary_dir = pj(out, 'roary')
 associations_dir = pj(out, 'associations')
 kmer_counts_dir = pj(associations_dir, 'kmer_counts')
@@ -61,8 +63,6 @@ simulated_gubbins_tree_dir = pj(refseq_dir, 'gubbins')
 simulated_annotations_dir = pj(refseq_dir, 'annotations')
 simulated_roary_dir = pj(refseq_dir, 'roary')
 
-# inputs but generated manualy during the analysis
-virulence = pj(out, 'virulence_genes.tsv')
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
                for x in strains]
@@ -75,7 +75,7 @@ baps_clusters = pj(out, 'baps.tsv')
 gubbins_tree = pj(gubbins_tree_dir, 'gubbins.final_tree.tre')
 polished_gubbins_tree = pj(gubbins_tree_dir, 'tree.nwk')
 gubbins_prefix = pj(gubbins_tree_dir, 'gubbins')
-kmers = pj(out, 'kmers.gz')
+kmers = pj(unitigs_dir, 'unitigs.txt')
 sketches_base = pj(out, 'sketches')
 sketches = sketches_base + '.msh'
 mash_distances = pj(out, 'mash.tsv')
@@ -84,6 +84,7 @@ gubbins_similarities = pj(out, 'gubbins.tsv')
 roary = pj(roary_dir, 'gene_presence_absence.Rtab')
 roarycsv = pj(roary_dir, 'gene_presence_absence.csv')
 sampled_pangenome = pj(roary_dir, 'sampled_pangenome.faa')
+virulence = pj(out, 'virulence_genes.tsv')
 refseq = pj(refseq_dir, 'refseq.tsv')
 # associations
 # kmers
@@ -102,6 +103,7 @@ references = pj(associations_dir, 'references.txt')
 filtered_cont_lmm_kmer = pj(associations_dir, 'filtered_cont_lmm_kmer.tsv')
 qq_cont_lmm_kmer = pj(associations_dir, 'qq_cont_lmm_kmer.png')
 annotated_cont_lmm_kmer = pj(associations_dir, 'annotated_cont_lmm_kmer.tsv')
+binary_kmer_annotations = pj(associations_dir, 'annotated_binary_cont_lmm_kmer.tsv')
 kmer_counts_lmm = [pj(kmer_counts_dir, x + '.txt')
                    for x in strains]
 kmer_mappings_lmm = [pj(kmer_mappings_dir, x + '.tsv')
@@ -245,8 +247,10 @@ rule make_gubbins_tree:
 rule do_kmers:
   input: input_file
   output: kmers
+  params: unitigs_dir
+  threads: 40
   shell:
-    'fsm-lite -l {input} -t tmp.txt -m 9 -M 100 -s 1 -v | gzip > {output}'
+    'unitig-counter -strains {input} -output {params} -nb-cores {threads}'
 
 rule:
   output: sketches
@@ -289,6 +293,15 @@ rule:
     'src/sample_pangenome {params.pangenome} {params.annotations} --focus-strain IAI39 --focus-strain IAI01 > {output}'
 
 rule:
+  input:
+    q=virulence_uniprot,
+    s=sampled_pangenome
+  output:
+    virulence
+  shell:
+    '''echo -e "gene\\tog" > {output};blastp -evalue 1E-4 -query {input.q} -subject {input.s} -outfmt "6 qaccver saccver pident qcovs evalue" | awk '{{if ($4 > 80 && $3 > 50) print $0}}' | awk '{{print $1"\\t"$2}}' >> {output}'''
+
+rule:
   input: annotations
   output: roary
   params: roary_dir
@@ -316,7 +329,7 @@ rule:
   params:
     dimensions=3
   shell:
-    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} --lineage-clusters {input.baps} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
+    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --uncompressed --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} --lineage-clusters {input.baps} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
 
 rule associate_kmers:
   input:
@@ -399,7 +412,8 @@ rule:
 rule:
   input:
     aclk=annotated_cont_lmm_kmer,
-    lclk=lineage_cont_lmm_kmer
+    lclk=lineage_cont_lmm_kmer,
+    r=roary
   output:
     sclk=summary_cont_lmm_kmer,
     slclk=summary_lineage_cont_lmm_kmer
@@ -407,9 +421,21 @@ rule:
     minsize=min_kmer_size
   shell:
     '''
-    python src/summarise_annotations.py {input.aclk} --min-size {params} > {output.sclk}
-    python src/summarise_annotations.py {input.aclk} --lineage $(head -n 2 {input.lclk} | tail -n 1 | awk '{{print $1}}') --min-size {params} > {output.slclk}
+    python src/summarise_annotations.py {input.aclk} {input.r} --min-size {params} > {output.sclk}
+    python src/summarise_annotations.py {input.aclk} {input.r} --lineage $(head -n 2 {input.lclk} | tail -n 1 | awk '{{print $1}}') --min-size {params} > {output.slclk}
     '''
+
+rule:
+  input:
+    annotated_cont_lmm_kmer,
+    kmers,
+    mash_distances
+  output:
+    binary_kmer_annotations
+  params:
+    minsize=min_kmer_size
+  shell:
+    'python src/annotated2binary.py {input} --min-size {params} > {output}'
 
 rule:
   input:
@@ -508,7 +534,8 @@ rule downstream:
     kmer_lineage_gene_count_lmm,
     rtab_gene_count_lmm,
     kmer_mappings_lmm,
-    sampled_ogs
+    sampled_ogs,
+    binary_kmer_annotations
 
 rule:
   input:
@@ -749,7 +776,8 @@ rule:
     rtab_gene_count_lmm, 
     phylogroups,
     roary,
-    virulence
+    virulence,
+    hpi
   output:
     viz_tree
   shell:
@@ -761,13 +789,14 @@ rule:
     ht=html_template,
     gd=gene_distances,
     sk=summary_cont_lmm_kmer,
-    ua=unified_annotations
+    ua=unified_annotations,
+    hp=og_names
   output:
     report1
   params:
     report1_nb
   shell:
-    'python3 src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=6000'
+    'python3 src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} -k hpi=../{input.hp} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=6000'
 
 rule:
   input:
@@ -776,13 +805,14 @@ rule:
     odds=odds_ratio,
     f=associated_ogs,
     n=unified_annotations,
-    s=summary_cont_lmm_kmer
+    s=summary_cont_lmm_kmer,
+    hp=og_names
   output:
     report2
   params:
     report2_nb
   shell:
-    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} -k names=../{input.n} -k kmer_hits=../{input.s} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} -k names=../{input.n} -k kmer_hits=../{input.s} -k hpi=../{input.hp} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:
@@ -824,7 +854,9 @@ rule:
     p2=phenotypes,
     g=genomes_dir,
     f=summary_cont_lmm_kmer,
-    r=roary
+    r=roary,
+    hp=og_names,
+    ba=binary_kmer_annotations
   output:
     report5
   params:
@@ -833,7 +865,7 @@ rule:
     p1=ecoref_phenotypes,
   threads: 40
   shell:
-    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} -k hpi=../{input.hp} -k binary=../{input.ba} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:

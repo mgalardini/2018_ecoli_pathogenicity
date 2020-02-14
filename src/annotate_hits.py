@@ -13,8 +13,8 @@ import subprocess
 import pybedtools
 import pandas as pd
 
-from pyseer.kmer_mapping.bwa import bwa_index
-from pyseer.kmer_mapping.bwa import bwa_iter
+from bwa import bwa_index
+from bwa import bwa_iter
 
 def get_options():
     import argparse
