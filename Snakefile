@@ -13,6 +13,7 @@ templates_dir = config.get('templates', 'templates')
 k12_genome = pj(data, 'genome.faa')
 phenotypes = pj(phenotypes_dir, 'phenotypes.tsv')
 og_names = pj(data, 'hpi.tsv')
+og_names_other = pj(data, 'others.tsv')
 phylogroups = pj(data, 'phylogroups.tsv')
 input_file = pj(data, 'inputs.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
@@ -777,7 +778,8 @@ rule:
     phylogroups,
     roary,
     virulence,
-    hpi
+    og_names,
+    og_names_other
   output:
     viz_tree
   shell:
@@ -790,13 +792,16 @@ rule:
     gd=gene_distances,
     sk=summary_cont_lmm_kmer,
     ua=unified_annotations,
-    hp=og_names
+    hp=og_names,
+    hp1=og_names_other,
+    roary=roary
   output:
     report1
   params:
-    report1_nb
+    report=report1_nb,
+    roarycsv=roarycsv
   shell:
-    'python3 src/run_notebook.py {input.rt} {params} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} -k hpi=../{input.hp} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=6000'
+    'python3 src/run_notebook.py {input.rt} {params.report} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} -k hpi=../{input.hp} -k others=../{input.hp1} -k rtab=../{params.roarycsv} && jupyter nbconvert --to html --template {input.ht} {params.report} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=6000'
 
 rule:
   input:
@@ -806,13 +811,14 @@ rule:
     f=associated_ogs,
     n=unified_annotations,
     s=summary_cont_lmm_kmer,
-    hp=og_names
+    hp=og_names,
+    hp1=og_names_other
   output:
     report2
   params:
     report2_nb
   shell:
-    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} -k names=../{input.n} -k kmer_hits=../{input.s} -k hpi=../{input.hp} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params} -k odds_ratio=../{input.odds} -k filtered=../{input.f} -k names=../{input.n} -k kmer_hits=../{input.s} -k hpi=../{input.hp} -k others=../{input.hp1} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:
@@ -856,6 +862,7 @@ rule:
     f=summary_cont_lmm_kmer,
     r=roary,
     hp=og_names,
+    hp1=og_names_other,
     ba=binary_kmer_annotations
   output:
     report5
@@ -865,7 +872,7 @@ rule:
     p1=ecoref_phenotypes,
   threads: 40
   shell:
-    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} -k hpi=../{input.hp} -k binary=../{input.ba} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} -k hpi=../{input.hp} -k others=../{input.hp1} -k binary=../{input.ba} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:

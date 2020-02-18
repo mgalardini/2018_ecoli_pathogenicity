@@ -19,6 +19,8 @@ def get_options():
                         help='genes file')
     parser.add_argument('hpi', action='store',
                         help='HPI file')
+    parser.add_argument('others', action='store',
+                        help='Other operons file')
     parser.add_argument('out', action='store',
                         help='Output directory')
 
@@ -133,6 +135,40 @@ if __name__ == "__main__":
                         index=set(htab.index),
                         columns=htab.columns)
     htab = htab.loc[htab.T.sum().sort_values().index[::-1]]
+    
+    others = {}
+    for l in open(options.others):
+        operon = l.split()[0]
+        others[operon] = {x.split(',')[0]: x.split(',')[1]
+                          for x in l.rstrip().split()[1:]}
+    atab = pd.read_table(options.rtab, index_col=0)
+    atab = atab.loc[others['aerobactin']].drop_duplicates()
+    atab = atab.sort_index()
+    atab.index = [others['aerobactin'][x] for x in atab.index]
+    res = []
+    for gene in set(atab.index):
+        if len(atab.loc[gene].shape) == 1:
+            res.append(atab.loc[gene].values)
+        else:
+            res.append(atab.loc[gene].sum().values)
+    atab = pd.DataFrame(res,
+                        index=set(atab.index),
+                        columns=atab.columns)
+    atab = atab.loc[atab.T.sum().sort_values().index[::-1]]
+    stab = pd.read_table(options.rtab, index_col=0)
+    stab = stab.loc[others['sitABCD']].drop_duplicates()
+    stab = stab.sort_index()
+    stab.index = [others['sitABCD'][x] for x in stab.index]
+    res = []
+    for gene in set(stab.index):
+        if len(stab.loc[gene].shape) == 1:
+            res.append(stab.loc[gene].values)
+        else:
+            res.append(stab.loc[gene].sum().values)
+    stab = pd.DataFrame(res,
+                        index=set(stab.index),
+                        columns=stab.columns)
+    stab = stab.loc[stab.T.sum().sort_values().index[::-1]]
 
     # tree
     tree = get_tree(options.tree)
@@ -168,8 +204,8 @@ if __name__ == "__main__":
                              sns.xkcd_rgb['dark sky blue'])
                 n.add_face(r, j+2,
                            position="aligned")
-        for jj, gene in enumerate(rtab.index):
-            if rtab.loc[gene, n.name] == 0:
+        for jj, gene in enumerate(atab.index):
+            if atab.loc[gene, n.name] == 0:
                 r = RectFace(30, 15,
                              '#d8dcd6',
                              '#d8dcd6')
@@ -177,9 +213,35 @@ if __name__ == "__main__":
                            position="aligned")
             else:
                 r = RectFace(30, 15,
+                             sns.xkcd_rgb['bluish green'],
+                             sns.xkcd_rgb['bluish green'])
+                n.add_face(r, j+jj+3,
+                           position="aligned")
+        for jjj, gene in enumerate(stab.index):
+            if stab.loc[gene, n.name] == 0:
+                r = RectFace(30, 15,
+                             '#d8dcd6',
+                             '#d8dcd6')
+                n.add_face(r, j+jj+jjj+4,
+                           position="aligned")
+            else:
+                r = RectFace(30, 15,
+                             sns.xkcd_rgb['yellow orange'],
+                             sns.xkcd_rgb['yellow orange'])
+                n.add_face(r, j+jj+jjj+4,
+                           position="aligned")
+        for jjjj, gene in enumerate(rtab.index):
+            if rtab.loc[gene, n.name] == 0:
+                r = RectFace(30, 15,
+                             '#d8dcd6',
+                             '#d8dcd6')
+                n.add_face(r, j+jj+jjj+jjjj+5,
+                           position="aligned")
+            else:
+                r = RectFace(30, 15,
                              '#00035b',
                              '#00035b')
-                n.add_face(r, j+jj+3,
+                n.add_face(r, j+jj+jjj+jjjj+5,
                            position="aligned")
 
 
