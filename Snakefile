@@ -56,6 +56,7 @@ kmer_counts_dir = pj(associations_dir, 'kmer_counts')
 kmer_mappings_dir = pj(associations_dir, 'kmer_mappings')
 refseq_dir = pj(out, 'refseq')
 plots_dir = pj(out, 'plots')
+staramr_dir = pj(out, 'staramr')
 maps_dir = pj(plots_dir, 'maps')
 notebooks_dir = config.get('notebooks', 'notebooks')
 # simulations
@@ -67,6 +68,9 @@ simulated_roary_dir = pj(refseq_dir, 'roary')
 # output files
 annotations = [pj(annotations_dir, x, x + '.gff')
                for x in strains]
+staramrs = [pj(staramr_dir, x, 'summary.tsv')
+            for x in strains]
+staramr = pj(out, 'staramr.tsv')
 parsnp_tree = pj(parsnp_tree_dir, 'parsnp.tree')
 polished_parsnp_tree = pj(parsnp_tree_dir, 'tree.nwk')
 parsnp_xmfa = pj(parsnp_tree_dir, 'parsnp.xmfa')
@@ -181,6 +185,23 @@ reports = [report1, report2,
            report3, report4,
            report5, report6,
            report7, report8]
+
+rule staramr:
+  input: staramrs
+  output: staramr
+  params: staramr_dir
+  shell:
+    '''
+    head -n 1 $(find {params} -type f -name '*.tsv' | head -n 1) > {output}
+    sed -s 1d {input} >> {output}
+    '''
+
+rule:
+  input: pj(genomes_dir, '{strain}.fasta')
+  output: pj(staramr_dir, '{strain}', 'summary.tsv')
+  params: pj(staramr_dir, '{strain}')
+  shell:
+    'staramr search -n 1 -o {params} {input}'
 
 rule annotate:
   input: annotations
@@ -863,7 +884,8 @@ rule:
     r=roary,
     hp=og_names,
     hp1=og_names_other,
-    ba=binary_kmer_annotations
+    ba=binary_kmer_annotations,
+    samr=staramr
   output:
     report5
   params:
@@ -872,7 +894,7 @@ rule:
     p1=ecoref_phenotypes,
   threads: 40
   shell:
-    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} -k hpi=../{input.hp} -k others=../{input.hp1} -k binary=../{input.ba} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} -k hpi=../{input.hp} -k others=../{input.hp1} -k binary=../{input.ba} -k staramr=../{input.samr} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
 
 rule:
   input:
