@@ -7,7 +7,7 @@ Dependencies
 ------------
 
 - Input genomes are available through [FigShare](https://figshare.com/articles/Escherichia_coli_pathogenicity_GWAS_input_genome_sequences/8866259), and the archive should be uncompressed into `data/genomes`
-- All necessary software can be installed through `conda` or `mamba`: `conda create -n 2018_ecoli_pathogenicity pyseer prokka harvesttools gubbins roary unitig-counter bwa bedtools mash blast ncbi-genome-download ete3 jupyterlab snakemake` followed by `conda activate 2018_ecoli_pathogenicity`
+- All necessary software can be installed through `conda` or `mamba`: `conda create -n 2018_ecoli_pathogenicity pyseer prokka harvesttools gubbins roary unitig-counter bwa bedtools mash blast ncbi-genome-download ete3 jupyterlab snakemake staramr` followed by `conda activate 2018_ecoli_pathogenicity`
 - A copy of the [UniRef50](ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/) database should be made into a blast database and available as `db/uniref50`
 
 Usage
@@ -25,6 +25,11 @@ Reference
 ---------
 
 [Major role of the high-pathogenicity island (HPI) in the intrinsic extra-intestinal virulence of *Escherichia coli* revealed by a genome-wide association study](https://www.biorxiv.org/content/10.1101/712034v1), biorxiv, doi: 10.1101/712034
+
+More reproducibility
+---------
+
+The `conda.txt` and `pip.txt` files contain the exact software version used to run this analysis.
 
 Copyright
 ---------
