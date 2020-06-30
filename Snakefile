@@ -12,9 +12,11 @@ templates_dir = config.get('templates', 'templates')
 # input files
 k12_genome = pj(data, 'genome.faa')
 phenotypes = pj(phenotypes_dir, 'phenotypes.tsv')
+phenotypes_ecoli = pj(phenotypes_dir, 'phenotypes_ecoli.tsv')
 og_names = pj(data, 'hpi.tsv')
 og_names_other = pj(data, 'others.tsv')
 phylogroups = pj(data, 'phylogroups.tsv')
+phylogroups_ecoli = pj(data, 'phylogroups_ecoli.tsv')
 input_file = pj(data, 'inputs.tsv')
 input_file_ecoli = pj(data, 'inputs_ecoli.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
@@ -83,12 +85,15 @@ gubbins_tree = pj(gubbins_tree_dir, 'gubbins.final_tree.tre')
 polished_gubbins_tree = pj(gubbins_tree_dir, 'tree.nwk')
 gubbins_prefix = pj(gubbins_tree_dir, 'gubbins')
 kmers = pj(unitigs_dir, 'unitigs.txt')
-kmers_ecoli = pj(unitigs_dir, 'unitigs_ecoli.txt')
+kmers_ecoli = pj(unitigs_ecoli_dir, 'unitigs.txt')
 sketches_base = pj(out, 'sketches')
 sketches = sketches_base + '.msh'
 mash_distances = pj(out, 'mash.tsv')
+mash_distances_ecoli = pj(out, 'mash_ecoli.tsv')
 parsnp_similarities = pj(out, 'parsnp.tsv')
 gubbins_similarities = pj(out, 'gubbins.tsv')
+parsnp_similarities_ecoli = pj(out, 'parsnp_ecoli.tsv')
+gubbins_similarities_ecoli = pj(out, 'gubbins_ecoli.tsv')
 roary = pj(roary_dir, 'gene_presence_absence.Rtab')
 roarycsv = pj(roary_dir, 'gene_presence_absence.csv')
 sampled_pangenome = pj(roary_dir, 'sampled_pangenome.faa')
@@ -100,6 +105,11 @@ associations_cont_lmm_kmer = pj(associations_dir, 'associations_cont_lmm_kmer.ts
 patterns_cont_lmm_kmer = pj(associations_dir, 'patterns_cont_lmm_kmer.txt')
 lineage_cont_lmm_kmer = pj(associations_dir, 'lineage_cont_lmm_kmer.tsv')
 h2_cont_lmm_kmer = pj(associations_dir, 'h2_cont_lmm_kmer.txt')
+# kmers ecoli
+associations_cont_lmm_kmer_ecoli = pj(associations_dir, 'associations_cont_lmm_kmer_ecoli.tsv')
+patterns_cont_lmm_kmer_ecoli = pj(associations_dir, 'patterns_cont_lmm_kmer_ecoli.txt')
+lineage_cont_lmm_kmer_ecoli = pj(associations_dir, 'lineage_cont_lmm_kmer_ecoli.tsv')
+h2_cont_lmm_kmer_ecoli = pj(associations_dir, 'h2_cont_lmm_kmer_ecoli.txt')
 # pangenome
 associations_cont_lmm_rtab = pj(associations_dir, 'associations_cont_lmm_rtab.tsv')
 patterns_cont_lmm_rtab = pj(associations_dir, 'patterns_cont_lmm_rtab.txt')
@@ -301,6 +311,14 @@ rule mash:
   shell:
     'mash dist -p {threads} {input} {input} | square_mash > {output}'
 
+rule mash_ecoli:
+  input:
+    m=mash_distances,
+    i=input_file_ecoli
+  output: mash_distances_ecoli
+  shell:
+    'python3 src/reduce_squared_matrix.py {input.i} {input.m} > {output}'
+
 rule similarity:
   input:
     parsnp=polished_parsnp_tree,
@@ -310,8 +328,22 @@ rule similarity:
     gout=gubbins_similarities
   shell:
     '''
-    python src/phylogeny_distance.py --calc-C {input.parsnp} > {output.pout}
-    python src/phylogeny_distance.py --calc-C {input.gubbins} > {output.gout}
+    python3 src/phylogeny_distance.py --calc-C {input.parsnp} > {output.pout}
+    python3 src/phylogeny_distance.py --calc-C {input.gubbins} > {output.gout}
+    '''
+
+rule similarity_ecoli:
+  input:
+    parsnp=parsnp_similarities,
+    gubbins=gubbins_similarities,
+    strains=input_file_ecoli
+  output:
+    pout=parsnp_similarities_ecoli,
+    gout=gubbins_similarities_ecoli
+  shell:
+    '''
+    python3 src/reduce_squared_matrix.py {input.strains} {input.parsnp} > {output.pout}
+    python3 src/reduce_squared_matrix.py {input.strains} {input.gubbins} > {output.gout}
     '''
 
 rule:
@@ -367,6 +399,28 @@ rule:
 rule associate_kmers:
   input:
     associations_cont_lmm_kmer
+
+rule:
+  input:
+    phenotype=phenotypes_ecoli,
+    kmers=kmers_ecoli,
+    dist=mash_distances_ecoli,
+    sim=gubbins_similarities_ecoli,
+    baps=phylogroups_ecoli
+  output:
+    associations=associations_cont_lmm_kmer_ecoli,
+    patterns=patterns_cont_lmm_kmer_ecoli,
+    lineage=lineage_cont_lmm_kmer_ecoli,
+    h2=h2_cont_lmm_kmer_ecoli
+  threads: 40
+  params:
+    dimensions=3
+  shell:
+    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --kmers {input.kmers} --uncompressed --max-dimensions {params.dimensions} --lineage --lineage-file {output.lineage} --cpu {threads} --output-patterns {output.patterns} --distance {input.dist} --lmm --similarity {input.sim} --lineage-clusters {input.baps} 2>&1 > {output.associations} | grep \'h^2\' > {output.h2}'
+
+rule associate_kmers_ecoli:
+  input:
+    associations_cont_lmm_kmer_ecoli
 
 rule:
   input:
