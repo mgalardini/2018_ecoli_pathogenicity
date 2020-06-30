@@ -16,6 +16,7 @@ og_names = pj(data, 'hpi.tsv')
 og_names_other = pj(data, 'others.tsv')
 phylogroups = pj(data, 'phylogroups.tsv')
 input_file = pj(data, 'inputs.tsv')
+input_file_ecoli = pj(data, 'inputs_ecoli.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
 genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
@@ -50,6 +51,7 @@ annotations_dir = pj(out, 'annotations')
 parsnp_tree_dir = pj(out, 'parsnp')
 gubbins_tree_dir = pj(out, 'gubbins')
 unitigs_dir = pj(out, 'unitigs')
+unitigs_ecoli_dir = pj(out, 'unitigs_ecoli')
 roary_dir = pj(out, 'roary')
 associations_dir = pj(out, 'associations')
 kmer_counts_dir = pj(associations_dir, 'kmer_counts')
@@ -81,6 +83,7 @@ gubbins_tree = pj(gubbins_tree_dir, 'gubbins.final_tree.tre')
 polished_gubbins_tree = pj(gubbins_tree_dir, 'tree.nwk')
 gubbins_prefix = pj(gubbins_tree_dir, 'gubbins')
 kmers = pj(unitigs_dir, 'unitigs.txt')
+kmers_ecoli = pj(unitigs_dir, 'unitigs_ecoli.txt')
 sketches_base = pj(out, 'sketches')
 sketches = sketches_base + '.msh'
 mash_distances = pj(out, 'mash.tsv')
@@ -270,6 +273,14 @@ rule do_kmers:
   input: input_file
   output: kmers
   params: unitigs_dir
+  threads: 40
+  shell:
+    'unitig-counter -strains {input} -output {params} -nb-cores {threads}'
+
+rule do_kmers_ecoli:
+  input: input_file_ecoli
+  output: kmers_ecoli
+  params: unitigs_ecoli_dir
   threads: 40
   shell:
     'unitig-counter -strains {input} -output {params} -nb-cores {threads}'
