@@ -302,7 +302,7 @@ rule do_kmers:
   params: unitigs_dir
   threads: 40
   shell:
-    'unitig-counter -strains {input} -output {params} -nb-cores {threads}'
+    'rm -rf {params} && unitig-counter -strains {input} -output {params} -nb-cores {threads}'
 
 rule do_kmers_ecoli:
   input: input_file_ecoli
@@ -310,7 +310,7 @@ rule do_kmers_ecoli:
   params: unitigs_ecoli_dir
   threads: 40
   shell:
-    'unitig-counter -strains {input} -output {params} -nb-cores {threads}'
+    'rm -rf {params} && unitig-counter -strains {input} -output {params} -nb-cores {threads}'
 
 rule:
   output: sketches
