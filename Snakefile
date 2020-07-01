@@ -1010,6 +1010,7 @@ rule:
     ht=html_template,
     gd=gene_distances,
     sk=summary_cont_lmm_kmer,
+    ske=summary_cont_lmm_kmer_ecoli,
     ua=unified_annotations,
     hp=og_names,
     hp1=og_names_other,
@@ -1020,7 +1021,7 @@ rule:
     report=report1_nb,
     roarycsv=roarycsv
   shell:
-    'python3 src/run_notebook.py {input.rt} {params.report} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k names=../{input.ua} -k hpi=../{input.hp} -k others=../{input.hp1} -k rtab=../{params.roarycsv} && jupyter nbconvert --to html --template {input.ht} {params.report} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=6000'
+    'python3 src/run_notebook.py {input.rt} {params.report} -k dists=../{input.gd} -k kmer_hits=../{input.sk} -k kmer_hits_ecoli=../{input.ske} -k names=../{input.ua} -k hpi=../{input.hp} -k others=../{input.hp1} -k rtab=../{params.roarycsv} && jupyter nbconvert --to html --template {input.ht} {params.report} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=6000'
 
 rule:
   input:
