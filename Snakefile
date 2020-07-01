@@ -21,6 +21,8 @@ input_file = pj(data, 'inputs.tsv')
 input_file_ecoli = pj(data, 'inputs_ecoli.tsv')
 strains = [x.split('.')[0] for x in os.listdir(genomes_dir)
            if x.endswith('.fasta')]
+strains_ecoli = [x.split()[0] for x in open(input_file_ecoli)
+                 if x.split()[0] != 'strain']
 genomes = [pj(genomes_dir, x + '.fasta') for x in strains]
 survival1 = pj(data, 'liste_souris_NILS46.csv')
 survival2 = pj(data, 'liste_souris_NILS9.csv')
@@ -58,6 +60,7 @@ roary_dir = pj(out, 'roary')
 associations_dir = pj(out, 'associations')
 kmer_counts_dir = pj(associations_dir, 'kmer_counts')
 kmer_mappings_dir = pj(associations_dir, 'kmer_mappings')
+kmer_mappings_ecoli_dir = pj(associations_dir, 'kmer_mappings_ecoli')
 refseq_dir = pj(out, 'refseq')
 plots_dir = pj(out, 'plots')
 staramr_dir = pj(out, 'staramr')
@@ -131,6 +134,14 @@ summary_cont_lmm_kmer = pj(associations_dir, 'summary_cont_lmm_kmer.tsv')
 summary_lineage_cont_lmm_kmer = pj(associations_dir, 'summary_lineage_cont_lmm_kmer.tsv')
 kmer_gene_count_lmm = pj(associations_dir, 'kmer_gene_counts_lmm.txt')
 kmer_lineage_gene_count_lmm = pj(associations_dir, 'kmer_lineage_gene_counts_lmm.txt')
+# kmers ecoli
+filtered_cont_lmm_kmer_ecoli = pj(associations_dir, 'filtered_cont_lmm_kmer_ecoli.tsv')
+qq_cont_lmm_kmer_ecoli = pj(associations_dir, 'qq_cont_lmm_kmer_ecoli.png')
+annotated_cont_lmm_kmer_ecoli = pj(associations_dir, 'annotated_cont_lmm_kmer_ecoli.tsv')
+kmer_mappings_lmm_ecoli = [pj(kmer_mappings_ecoli_dir, x + '.tsv')
+                           for x in strains_ecoli]
+summary_cont_lmm_kmer_ecoli = pj(associations_dir, 'summary_cont_lmm_kmer_ecoli.tsv')
+summary_lineage_cont_lmm_kmer_ecoli = pj(associations_dir, 'summary_lineage_cont_lmm_kmer_ecoli.tsv')
 # pangenome
 filtered_cont_lmm_rtab = pj(associations_dir, 'filtered_cont_lmm_rtab.tsv')
 qq_cont_lmm_rtab = pj(associations_dir, 'qq_cont_lmm_rtab.png')
@@ -141,6 +152,12 @@ associated_ogs = pj(associations_dir, 'associated_ogs.txt')
 sampled_ogs = pj(associations_dir, 'associated_ogs.faa')
 uniref = pj(associations_dir, 'associated_ogs.faa.uniref50.tsv')
 unirefnames = pj(associations_dir, 'associated_ogs.faa.uniref50.names.tsv')
+# associations - downstream - genes - ecoli
+associated_ogs_ecoli = pj(associations_dir, 'associated_ogs_ecoli.txt')
+sampled_ogs_ecoli = pj(associations_dir, 'associated_ogs_ecoli.faa')
+uniref_ecoli = pj(associations_dir, 'associated_ogs.faa.uniref50.ecoli.tsv')
+unirefnames_ecoli = pj(associations_dir, 'associated_ogs.faa.uniref50.names.ecoli.tsv')
+unified_annotations_ecoli = pj(associations_dir, 'associated_ogs_ecoli.final.tsv')
 # restricted strains analysis
 restricted_covariates = pj(associations_dir, 'restricted_covariates.tsv')
 associations_restricted = pj(associations_dir, 'associations_restricted.tsv')
@@ -461,15 +478,23 @@ rule:
 
 rule:
   input:
-    aclk=associations_cont_lmm_kmer,
-    aclr=associations_cont_lmm_rtab
+    aclk=associations_cont_lmm_kmer_ecoli,
+    pk=patterns_cont_lmm_kmer_ecoli,
   output:
-    qclk=qq_cont_lmm_kmer,
-    qclr=qq_cont_lmm_rtab
+    fclk=filtered_cont_lmm_kmer_ecoli,
+  shell:
+    '''
+    cat <(head -1 {input.aclk}) <(awk -v pval=$(python src/count_patterns.py {input.pk} | tail -n 1 | awk '{{print $2}}') '$4<pval {{print $0}}' {input.aclk}) > {output.fclk}
+    ''' 
+
+rule:
+  input:
+    aclk=associations_cont_lmm_kmer,
+  output:
+    qclk=qq_cont_lmm_kmer_ecoli
   shell:
     '''
     python src/qq_plot.py {input.aclk} --output {output.qclk}
-    python src/qq_plot.py {input.aclr} --output {output.qclr}
     '''
 
 rule:
@@ -498,12 +523,44 @@ rule:
 
 rule:
   input:
+    fclk=filtered_cont_lmm_kmer_ecoli,
+    ref=references,
+    roary=roary
+  output:
+    dclk=annotated_cont_lmm_kmer_ecoli
+  params:
+    gd=genomes_dir,
+    pangenome=roarycsv
+  shell:
+    '''
+    python src/annotate_hits.py {input.fclk} {input.ref} {output.dclk} --tmp-prefix /tmp/ --roary {params.pangenome}
+    rm -f {params.gd}/*.pac {params.gd}/*.sa {params.gd}/*.amb {params.gd}/*.ann {params.gd}/*.bwt
+    '''
+
+rule annotated:
+  input:
     aclk=annotated_cont_lmm_kmer,
     lclk=lineage_cont_lmm_kmer,
     r=roary
   output:
     sclk=summary_cont_lmm_kmer,
     slclk=summary_lineage_cont_lmm_kmer
+  params:
+    minsize=min_kmer_size
+  shell:
+    '''
+    python src/summarise_annotations.py {input.aclk} {input.r} --min-size {params} > {output.sclk}
+    python src/summarise_annotations.py {input.aclk} {input.r} --lineage $(head -n 2 {input.lclk} | tail -n 1 | awk '{{print $1}}') --min-size {params} > {output.slclk}
+    '''
+
+rule annotated_ecoli:
+  input:
+    aclk=annotated_cont_lmm_kmer_ecoli,
+    lclk=lineage_cont_lmm_kmer_ecoli,
+    r=roary
+  output:
+    sclk=summary_cont_lmm_kmer_ecoli,
+    slclk=summary_lineage_cont_lmm_kmer_ecoli
   params:
     minsize=min_kmer_size
   shell:
@@ -612,6 +669,42 @@ rule:
   shell:
     'src/sample_pangenome {params.pangenome} {params.annotations} --focus-strain IAI39 --focus-strain IAI01 --groups {input.ogs} > {output}'
 
+rule:
+  input:
+    fclk=filtered_cont_lmm_kmer_ecoli,
+    genome=pj(genomes_dir, '{strain}.fasta'),
+    gff=pj(annotations_dir, '{strain}', '{strain}.gff'),
+    roary=roary
+  params:
+    roarycsv
+  output:
+    pj(kmer_mappings_ecoli_dir, '{strain}.tsv')
+  shell:
+    'mkdir -p tmp_map_back_{wildcards.strain} && src/map_back {input.fclk} {input.genome} --bwa-algorithm fastmap --print-details --tmp-prefix tmp_map_back_{wildcards.strain} --gff {input.gff} --roary {params} > {output} && rm -rf tmp_map_back_{wildcards.strain}'
+
+rule:
+  input:
+    kmer_mappings_lmm_ecoli
+  params:
+    kdir=kmer_mappings_ecoli_dir,
+    minsize=min_kmer_size
+  output:
+    associated_ogs_ecoli
+  shell:
+    '''awk '{{if (length($2) >= {params.minsize} && $8 != "") print $8}}' {params.kdir}/*.tsv | sort | uniq -c | sort -n | awk '{{print $2"\\t"$1}}' > {output}'''
+
+rule:
+  input:
+    ogs=associated_ogs_ecoli,
+    roary=roary
+  params:
+    pangenome=roarycsv,
+    annotations=annotations_dir
+  output:
+    sampled_ogs_ecoli
+  shell:
+    'src/sample_pangenome {params.pangenome} {params.annotations} --focus-strain IAI39 --focus-strain IAI01 --groups {input.ogs} > {output}'
+
 rule downstream:
   input:
     qq_cont_lmm_kmer,
@@ -623,6 +716,13 @@ rule downstream:
     kmer_mappings_lmm,
     sampled_ogs,
     binary_kmer_annotations
+
+rule downstream_ecoli:
+  input:
+    summary_cont_lmm_kmer_ecoli,
+    qq_cont_lmm_kmer_ecoli,
+    kmer_mappings_lmm_ecoli,
+    sampled_ogs_ecoli
 
 rule:
   input:
@@ -669,6 +769,39 @@ rule annotate_hits:
   input:
     gene_distances,
     unified_annotations
+
+rule:
+  input:
+    sampled_ogs_ecoli
+  params:
+    uniref50
+  output:
+    uniref_ecoli
+  threads: 40
+  shell:
+    'blastp -query {input} -num_threads {threads} -db {params} -outfmt 6 > {output}'
+
+rule:
+  input:
+    uniref_ecoli
+  output:
+    unirefnames_ecoli
+  shell:
+    'src/uniref2genes {input} > {output}'
+
+rule:
+  input:
+    f1=unirefnames_ecoli,
+    f2=sampled_ogs_ecoli,
+    f3=og_names
+  output:
+    unified_annotations_ecoli
+  shell:
+    'src/unify_annotations {input.f1} {input.f2} --names {input.f3} > {output}'
+
+rule annotate_hits_ecoli:
+  input:
+    unified_annotations_ecoli
 
 rule:
   input:
