@@ -45,8 +45,6 @@ report8_template = pj(templates_dir, 'yersiniabactin.ipynb')
 # configurable stuff
 # edit at will or change these settings with --config
 uniref50 = config.get('uniref50', 'db/uniref50')
-power_ogs = 'pks2,group_2650'
-simulated_power_ogs = 'group_7955,fabG'
 min_kmer_size = 20
 
 # output directories
@@ -966,10 +964,8 @@ rule:
     gubbins_similarities
   output:
     power_analysis
-  params:
-    power_ogs
   shell:
-    'src/power_simulation {input} {params} > {output}'
+    'src/power_simulation {input} > {output}'
 
 rule:
   input:
@@ -977,10 +973,8 @@ rule:
     simulated_gubbins_similarities
   output:
     simulated_power_analysis
-  params:
-    simulated_power_ogs
   shell:
-    'src/power_simulation {input} {params} > {output}'
+    'src/power_simulation {input} > {output}'
 
 rule simulations:
   input:

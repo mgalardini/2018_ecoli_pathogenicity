@@ -11,13 +11,15 @@ def get_options():
                         help='Roary\'s rtab output')
     parser.add_argument('similarities',
                         help='Strain\'s similarities table')
-    parser.add_argument('groups',
-                        help='OG(s) to test (comma separated)')
     
     parser.add_argument('--alpha',
                         type=float,
                         default=0.05,
                         help='Family-wise error rate [Default: 0.05]')
+    parser.add_argument('--genes',
+                        type=int,
+                        default=5,
+                        help='Sampled OGs for each MAF [Default: 5]')
 
     return parser.parse_args()
 
@@ -64,11 +66,19 @@ if __name__ == "__main__":
     res = []
     roary = pd.read_table(options.roary,
                           index_col=0)
-    # genes = ['pks2', 'group_1661']
-    genes = options.groups.split(',')
+    # maf for each gene
+    rt = roary.T.sum() / roary.shape[1]
+    # preselect genes in the maf range 0.1 -> 0.9
+    genes = set()
+    for maf in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+        mg = list(rt[abs(rt - maf) < 0.01].index)
+        random.shuffle(mg)
+        for gene in mg[:options.genes]:
+            genes.add(gene)
+    genes = list(genes)
     strains = list(roary.columns)
     for size in list(range(20, roary.shape[1], 50)) + [roary.shape[1]]:
-        for i in range(100):
+        for i in range(20):
             pg = roary.copy(deep=True)
             if size != roary.shape[1]:
                 random.shuffle(strains)
@@ -109,13 +119,16 @@ if __name__ == "__main__":
                                   True,
                                   1,
                                   1)[0]
-                    res.append((size, OR, k, maf, threshold, out.pvalue, out.pvalue < threshold))
+                    omaf = rt.loc[k]
+                    res.append((size, OR, k, maf, omaf, round(omaf, 1), threshold, out.pvalue, out.pvalue < threshold))
 
     r = pd.DataFrame(res,
                      columns=['size',
                               'OR',
                               'og',
                               'maf',
+                              'original_maf',
+                              'rounded_maf',
                               'threshold',
                               'pvalue',
                               'pass'])
