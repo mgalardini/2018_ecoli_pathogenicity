@@ -1087,7 +1087,7 @@ rule:
     p1=ecoref_phenotypes,
   threads: 40
   shell:
-    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} -k hpi=../{input.hp} -k others=../{input.hp1} -k binary=../{input.ba} -k staramr=../{input.samr} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+    'python3 src/run_notebook.py {input.rt} {params.r} -k cores={threads} -k strains="{params.s}" -k filtered=../{input.f} -k phenotypes="{params.p1}" -k pathogenicity=../{input.p2} -k gdir=../{input.g} -k rtab=../{input.r} -k hpi=../{input.hp} -k others=../{input.hp1} -k binary=../{input.ba} -k staramr=../{input.samr} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=6000'
 
 rule:
   input:
