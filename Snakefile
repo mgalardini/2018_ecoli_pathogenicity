@@ -41,6 +41,7 @@ report5_template = pj(templates_dir, 'chemical.ipynb')
 report6_template = pj(templates_dir, 'gene_view.ipynb')
 report7_template = pj(templates_dir, 'survival.ipynb')
 report8_template = pj(templates_dir, 'yersiniabactin.ipynb')
+report9_template = pj(templates_dir, 'cog_enrich.ipynb')
 
 # configurable stuff
 # edit at will or change these settings with --config
@@ -167,7 +168,8 @@ qq_restricted = pj(associations_dir, 'qq_restricted.png')
 annotated_restricted = pj(associations_dir, 'annotated_restricted.tsv')
 summary_restricted = pj(associations_dir, 'summary_restricted.tsv')
 # offline annotation
-eggnog = pj(associations_dir, 'associated_ogs.faa.emapper.annotations')
+eggnog = pj(associations_dir, 'associated.eggnogg.tsv')
+eggnog_ref = pj(associations_dir, 'IAI39.tsv')
 unified_annotations = pj(associations_dir, 'associated_ogs.final.tsv')
 # power analysis
 odds_ratio = pj(associations_dir, 'odds_ratio.tsv')
@@ -208,11 +210,15 @@ report7 = pj(notebooks_dir, 'survival.html')
 # yersiniabactin
 report8_nb = pj(notebooks_dir, 'yersiniabactin.ipynb')
 report8 = pj(notebooks_dir, 'yersiniabactin.html')
-# all reports
+# enrichment
+report9_nb = pj(notebooks_dir, 'cog_enrich.ipynb')
+report9 = pj(notebooks_dir, 'cog_enrich.html')
+# all reports (minus the ones relying on offline files
 reports = [report1, report2,
            report3, report4,
            report5, report6,
            report7, report8]
+offline_reports = [report9]
 
 rule staramr:
   input: staramrs
@@ -1132,9 +1138,32 @@ rule:
     report8_nb,
   shell:
     'python3 src/run_notebook.py {input.rt} {params} -k data=../{input.y} && jupyter nbconvert --to html --template {input.ht} {params} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
+
+rule:
+  input:
+    rt=report9_template,
+    ht=html_template,
+    ref=eggnog_ref,
+    ann=eggnog,
+    roary=roary,
+    names=unified_annotations,
+    hpi=og_names,
+    others=og_names_other
+  output:
+    report9
+  params:
+    r=report9_nb,
+    roary=roarycsv
+  shell:
+    'python3 src/run_notebook.py {input.rt} {params.r} -k ref=../{input.ref} -k associated=../{input.ann} -k roary=../{params.roary} -k names=../{input.names} -k hpi=../{input.hpi} -k others=../{input.others} && jupyter nbconvert --to html --template {input.ht} {params.r} --ExecutePreprocessor.enabled=True --ExecutePreprocessor.timeout=600'
  
 rule all:
   input:
     viz_tree,
     reports
-    
+
+rule all_offline:
+  input:
+    viz_tree,
+    reports,
+    offline_reports
