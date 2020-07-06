@@ -11,6 +11,9 @@ templates_dir = config.get('templates', 'templates')
 
 # input files
 k12_genome = pj(data, 'genome.faa')
+k12_gbk = pj(data, 'genome.gbk')
+k12_references = pj(data, 'references.txt')
+k12_uniprot = pj(data, 'locus_uniprot.tsv')
 phenotypes = pj(phenotypes_dir, 'phenotypes.tsv')
 phenotypes_ecoli = pj(phenotypes_dir, 'phenotypes_ecoli.tsv')
 og_names = pj(data, 'hpi.tsv')
@@ -51,6 +54,7 @@ min_kmer_size = 20
 # output directories
 out = config.get('out', 'out')
 annotations_dir = pj(out, 'annotations')
+snps_dir = pj(out, 'snippy')
 parsnp_tree_dir = pj(out, 'parsnp')
 gubbins_tree_dir = pj(out, 'gubbins')
 unitigs_dir = pj(out, 'unitigs')
@@ -72,8 +76,13 @@ simulated_annotations_dir = pj(refseq_dir, 'annotations')
 simulated_roary_dir = pj(refseq_dir, 'roary')
 
 # output files
+sift = pj(out, 'sift.tab.gz')
 annotations = [pj(annotations_dir, x, x + '.gff')
                for x in strains]
+snps = [pj(snps_dir, x, 'snps.vcf')
+        for x in strains]
+annotated_snps = [pj(snps_dir, x, 'annotated_snps.tsv')
+                  for x in strains]
 staramrs = [pj(staramr_dir, x, 'summary.tsv')
             for x in strains]
 staramr = pj(out, 'staramr.tsv')
@@ -151,6 +160,12 @@ associated_ogs = pj(associations_dir, 'associated_ogs.txt')
 sampled_ogs = pj(associations_dir, 'associated_ogs.faa')
 uniref = pj(associations_dir, 'associated_ogs.faa.uniref50.tsv')
 unirefnames = pj(associations_dir, 'associated_ogs.faa.uniref50.names.tsv')
+# associations - downstream - snps - k12
+sampled_ogs_k12 = pj(associations_dir, 'associated_ogs.k12.tsv')
+annotated_kmer_k12 = pj(associations_dir, 'annotated_kmer_k12.txt')
+associated_kmer_k12 = pj(associations_dir, 'annotated_kmer_k12.bed')
+collated_sift = pj(associations_dir, 'nonsyn.k12.tsv')
+associations_cont_lmm_nonsyn = pj(associations_dir, 'associations.nonsyn.k12.tsv')
 # associations - downstream - genes - ecoli
 associated_ogs_ecoli = pj(associations_dir, 'associated_ogs_ecoli.txt')
 sampled_ogs_ecoli = pj(associations_dir, 'associated_ogs_ecoli.faa')
@@ -220,6 +235,11 @@ reports = [report1, report2,
            report7, report8]
 offline_reports = [report9]
 
+rule download_sift:
+  output: sift
+  shell:
+    'wget -O {output} http://ftp.ebi.ac.uk/pub/databases/mutfunc/mutfunc_v2/ecoli/sift.tab.gz'
+
 rule staramr:
   input: staramrs
   output: staramr
@@ -249,6 +269,59 @@ rule:
   threads: 5
   shell:
     'prokka --outdir {params} --force --prefix {wildcards.strain} --addgenes --locustag {wildcards.strain} --mincontiglen 200 --genus Escherichia -species coli --strain {wildcards.strain} --proteins {input.ref} --cpus {threads} {input.genome}'
+
+rule snps:
+  input: snps
+
+rule:
+  input:
+    ref=k12_gbk,
+    genome=pj(genomes_dir, '{strain}.fasta')
+  output: pj(snps_dir, '{strain}', 'snps.vcf')
+  params:
+    d=pj(snps_dir, '{strain}'),
+    t='{strain}'
+  threads: 1
+  shell:
+    'mkdir -p /tmp/{params.t} && snippy --force --outdir {params.d} --ref {input.ref} --ctgs {input.genome} --cpus {threads} --ram 8 --tmpdir /tmp/{params.t}'
+
+rule annotate_snps:
+  input: annotated_snps
+  output: collated_sift 
+  params: snps_dir
+  shell:
+    'python3 src/collate_sift.py {params} > {output}'
+
+rule:
+  input:
+    annotated_kmer_k12,
+    sampled_ogs_k12
+  output: associated_kmer_k12
+  shell:
+    'python3 src/annotated2bed.py {input} > {output}'
+
+rule:
+  input:
+    s=sift,
+    b=associated_kmer_k12,
+    v=pj(snps_dir, '{strain}', 'snps.vcf'),
+    u=k12_uniprot
+  output:pj(snps_dir, '{strain}', 'annotated_snps.tsv') 
+  shell:
+    'bedtools intersect -a {input.v} -b {input.b} | python3 src/vcf2tsv - {input.s} --ids {input.u} > {output}'
+
+rule associate_nonsyn:
+  input:
+    phenotype=phenotypes,
+    rtab=collated_sift,
+    sim=gubbins_similarities,
+    baps=phylogroups
+  output:
+    associations=associations_cont_lmm_nonsyn
+  threads: 1
+  shell:
+    'pyseer --phenotypes {input.phenotype} --phenotype-column killed --pres {input.rtab} --uncompressed --cpu {threads} --lmm --similarity {input.sim} --lineage-clusters {input.baps} > {output}'
+
 
 rule:
   output: parsnp_tree
@@ -660,6 +733,29 @@ rule:
     associated_ogs
   shell:
     '''awk '{{if (length($2) >= {params.minsize} && $8 != "") print $8}}' {params.kdir}/*.tsv | sort | uniq -c | sort -n | awk '{{print $2"\\t"$1}}' > {output}'''
+
+rule:
+  input:
+    k12=k12_genome,
+    ogs=sampled_ogs
+  output:
+    sampled_ogs_k12
+  shell:
+    '''blastp -query {input.ogs} -subject {input.k12} -evalue 1E-4 -outfmt "6 qseqid sseqid pident qcovs" | awk '{{if ($3 > 70 && $4 > 70) print $1"\\t"$2}}' > {output}'''
+
+rule:
+  input:
+    kmer=filtered_cont_lmm_kmer,
+    ref=k12_references
+  output:
+     annotated_kmer_k12
+  shell:
+     'python3 src/annotate_hits.py {input} {output} --id locus_tag' 
+
+rule unitigs_snps:
+  input:
+    sampled_ogs_k12,
+    annotated_kmer_k12
 
 rule:
   input:

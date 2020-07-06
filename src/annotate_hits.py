@@ -42,10 +42,14 @@ def get_options():
                         help="Directory to store temporary files "
                         "[default=./]",
                         default=os.getcwd())
+    parser.add_argument("--id",
+                        default='ID',
+                        help="Locus tag ID "
+                        "[default=%(default)s]")
     return parser.parse_args()
 
 
-def extract_genes(bedtools_intervals, rd=None):
+def extract_genes(bedtools_intervals, rd=None, id='ID'):
     if rd is None:
         rd = {}
     annotations = {}
@@ -58,7 +62,7 @@ def extract_genes(bedtools_intervals, rd=None):
         for tag in match.fields[15].split(";"):
             parse_tag = re.search('^(.+)=(.+)$', tag)
             if parse_tag:
-                if parse_tag.group(1) == "ID" and ID is None:
+                if parse_tag.group(1) == id and ID is None:
                     ID = parse_tag.group(2)
         if gene is None:
             if ID is not None:
@@ -188,9 +192,9 @@ def main():
                 query_interval = pybedtools.BedTool(query_bed.name)
                 sorted_query = query_interval.sort()
 
-                in_genes = extract_genes(query_interval.intersect(b=ref_annotation, s=False, stream=True, wb=True), rd)
-                up_genes = extract_genes(sorted_query.closest(b=ref_annotation, s=False, D="ref", iu=True, stream=True), rd)
-                down_genes = extract_genes(sorted_query.closest(b=ref_annotation, s=False, D="ref", id=True, stream=True), rd)
+                in_genes = extract_genes(query_interval.intersect(b=ref_annotation, s=False, stream=True, wb=True), rd, id=options.id)
+                up_genes = extract_genes(sorted_query.closest(b=ref_annotation, s=False, D="ref", iu=True, stream=True), rd, id=options.id)
+                down_genes = extract_genes(sorted_query.closest(b=ref_annotation, s=False, D="ref", id=True, stream=True), rd, id=options.id)
                 pybedtools.cleanup() # delete the bed file
 
                 for kmer_idx, kmer_line  in enumerate(kmer_lines):

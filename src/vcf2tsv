@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+'''
+Extract all non-synonymous mutations from an annotated VCF file
+
+Works with VCF files annotated with snpEFF
+'''
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    # create the top-level parser
+    description = "Output all nonsynonymous mutations (from annotated vcf)"
+    parser = argparse.ArgumentParser(description = description)
+
+    parser.add_argument('vcf', action='store',
+                        type=argparse.FileType('rb'),
+                        help='VCF stream or file ("-" for STDIN)')
+    parser.add_argument('sift', action='store',
+                        help='SIFT table')
+    
+    parser.add_argument('--ids', action='store',
+                        default=None,
+                        help='CDS IDs conversion file (locus_tag -> uniprot) [Default: None]')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import sys
+    import os
+    import vcf
+    import pandas as pd
+    from Bio.SeqUtils import seq1
+
+    options = get_options()
+
+    # Read the ID conversions, if any
+    id_conv = {}
+    if options.ids is not None:
+        for l in open(options.ids):
+            locus, uniprot = l.rstrip().split()
+            id_conv[locus] = uniprot
+
+    # test for empty VCF
+    try:
+        res = []
+        for r in vcf.Reader(options.vcf):
+            var = r.ALT[0]
+            # Why was this here?
+            # if r.is_indel and len(str(r.REF)) != len(str(r.ALT[0])):
+            #    continue
+            # Look if there is any missense variant in there
+            # Must belong to the variant that we are supplying of course!
+            nonsyn = [x for x in r.INFO['ANN']
+                      if x.split('|')[0] == var and
+                      'missense_variant' in x.split('|')[1]]
+            for nvar in nonsyn:
+                locus = nvar.split('|')[3]
+                if options.ids is not None:
+                    cds = id_conv.get(locus, locus)
+                else:
+                    cds = locus
+                mut = nvar.split('|')[10]
+                
+                m = mut[2:]
+                # Get start position
+                i = 0
+                while len(m) > 0:
+                    i += 1
+                    m = m[1:-1]
+                    try:
+                        int(m)
+                        break
+                    except:
+                        continue
+                if len(m) == 0:
+                    continue
+                
+                # Multiple Aa substitutions in one go?
+                muts = []
+                j = 0
+                k = 0
+                mut = mut[2:]
+                while j < i:
+                    wt_aa = mut[j:j+3]
+                    mut_aa = mut[i+len(m)+j:i+len(m)+3+j]
+                    pos_aa = int(m)+k
+                    muts.append( (seq1(wt_aa), pos_aa, seq1(mut_aa)) )
+                    j += 3
+                    k += 1
+
+                for wt_aa, pos_aa, mut_aa in muts:
+                    # Avoid synonymous mutations
+                    if wt_aa == mut_aa:
+                        continue
+                    # One line per nonsyn mutation
+                    res.append((locus, cds, 'nonsyn', int(pos_aa), wt_aa, mut_aa))
+
+            # Look if there is any stop_gain variant in there
+            # Must belong to the variant that we are supplying of course!
+            nonsyn = [x for x in r.INFO['ANN']
+                      if x.split('|')[0] == var and
+                      'stop_gained' in x.split('|')[1]]
+            for nvar in nonsyn:
+                locus = nvar.split('|')[3]
+                if options.ids is not None:
+                    cds = id_conv.get(locus, locus)
+                else:
+                    cds = locus
+                mut = nvar.split('|')[10]
+                
+                m = mut[2:-1]
+                # Get start position
+                i = 0
+                while len(m) > 0:
+                    i += 1
+                    m = m[1:]
+                    try:
+                        int(m)
+                        break
+                    except:
+                        continue
+                if len(m) == 0:
+                    continue
+                
+                # Multiple Aa become on stop codon?
+                refs = []
+                j = 0
+                mut = mut[2:]
+                while j < i:
+                    wt_aa = mut[j:j+3]
+                    refs.append( seq1(wt_aa) )
+                    j += 3
+
+                res.append((locus, cds, 'stop_gained', int(m), ''.join(refs), '*'))
+
+            # Look if there is any stop_lost variant in there
+            # Must belong to the variant that we are supplying of course!
+            nonsyn = [x for x in r.INFO['ANN']
+                      if x.split('|')[0] == var and
+                      'stop_lost' in x.split('|')[1]]
+            for nvar in nonsyn:
+                locus = nvar.split('|')[3]
+                if options.ids is not None:
+                    cds = id_conv.get(locus, locus)
+                else:
+                    cds = locus
+                mut = nvar.split('|')[10]
+                
+                # Remove the final 'ext*?'
+                if mut[-5:] != 'ext*?':
+                    sys.stderr.write('Unknown stop_lost event (%s)\n'%mut)
+                    continue
+                m = mut[2:-5]
+                # Get start position
+                i = 0
+                while len(m) > 0:
+                    i += 1
+                    m = m[1:-1]
+                    try:
+                        int(m)
+                        break
+                    except:
+                        continue
+                if len(m) == 0:
+                    continue
+
+                # Multiple Aa become on stop codon?
+                refs = []
+                muts = []
+                j = 0
+                mut = mut[2:-5]
+                while j < i:
+                    wt_aa = mut[j:j+3]
+                    mut_aa = mut[i+len(m)+j:i+len(m)+3+j]
+                    if wt_aa == 'Ter':
+                        refs.append( '*' )
+                    else: 
+                        refs.append( seq1(wt_aa) )
+                    muts.append( seq1(mut_aa) )
+                    j += 3
+
+                res.append((locus, cds, 'stop_lost', int(m), ''.join(refs), ''.join(muts)))
+            
+            # Look if there is any start_lost variant in there
+            # Must belong to the variant that we are supplying of course!
+            nonsyn = [x for x in r.INFO['ANN']
+                      if x.split('|')[0] == var and
+                      'start_lost' in x.split('|')[1]]
+            for nvar in nonsyn:
+                locus = nvar.split('|')[3]
+                if options.ids is not None:
+                    cds = id_conv.get(locus, locus)
+                else:
+                    cds = locus
+                mut = nvar.split('|')[10]
+                
+                m = mut[2:-1]
+                # Get start position
+                i = 0
+                while len(m) > 0:
+                    i += 1
+                    m = m[1:]
+                    try:
+                        int(m)
+                        break
+                    except:
+                        continue
+                if len(m) == 0:
+                    continue
+                
+                # Multiple Aa become on stop codon?
+                refs = []
+                j = 0
+                mut = mut[2:]
+                while j < i:
+                    wt_aa = mut[j:j+3]
+                    refs.append( seq1(wt_aa) )
+                    j += 3
+
+                res.append((locus, cds, 'start_lost', int(m), ''.join(refs), '?'))
+
+        r = pd.DataFrame(sorted(set(res)), columns=['locus', 'acc', 'type', 'pos', 'ref', 'alt'])
+        s = pd.read_csv(options.sift, sep='\t')
+        r = r.set_index(['acc', 'pos', 'ref', 'alt']).join(s.set_index(['acc', 'pos', 'ref', 'alt']), how='left')
+        r.to_csv(sys.stdout, sep='\t')
+
+    except StopIteration:
+        sys.exit(0)
