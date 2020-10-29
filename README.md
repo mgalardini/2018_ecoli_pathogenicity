@@ -24,7 +24,7 @@ where `CPU` is the number of cores available. Please bare in mind that the whole
 Reference
 ---------
 
-[Major role of the high-pathogenicity island (HPI) in the intrinsic extra-intestinal virulence of *Escherichia coli* revealed by a genome-wide association study](https://www.biorxiv.org/content/10.1101/712034v1), biorxiv, doi: 10.1101/712034
+[Major role of iron uptake systems in the intrinsic extra-intestinal virulence of the genus *Escherichia* revealed by a genome-wide association study](https://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1009065), PLoS Genetics, doi: 10.1371/journal.pgen.1009065
 
 More reproducibility
 ---------
